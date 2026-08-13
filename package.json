@@ -1,0 +1,39 @@
+{
+  "name": "dsh-launcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DeepSeek Harness 启动器：一键启动/停止 dsh web、运行 headless 任务、实时日志与控制台界面（零依赖）",
+  "main": "launcher.js",
+  "bin": {
+    "dsh-launcher": "launcher.js"
+  },
+  "scripts": {
+    "start": "node launcher.js",
+    "test": "node --test test/",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "launcher",
+    "web-ui",
+    "ai"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/levi52/dsh-launcher.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "launcher.js",
+    "public/",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ]
+}

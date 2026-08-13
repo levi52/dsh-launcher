@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#06101d"/>
+      <stop offset="1" stop-color="#02060c"/>
+    </linearGradient>
+    <linearGradient id="whale" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="btn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#0e5a8c" stop-opacity=".35"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#3ddc97" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#3ddc97" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1280" height="800" fill="url(#bg)"/>
+  <rect width="1280" height="800" fill="url(#bg)" opacity="0"/>
+  <g opacity=".06">
+    <path d="M0 120 H1280 M0 240 H1280 M0 360 H1280 M0 480 H1280 M0 600 H1280 M0 720 H1280" stroke="#4fbfff"/>
+    <path d="M160 0 V800 M320 0 V800 M480 0 V800 M640 0 V800 M800 0 V800 M960 0 V800 M1120 0 V800" stroke="#4fbfff"/>
+  </g>
+
+  <!-- 顶部栏 -->
+  <rect x="0" y="0" width="1280" height="86" fill="#06101d" opacity=".9"/>
+  <line x1="0" y1="86" x2="1280" y2="86" stroke="#2a5a7a" stroke-opacity=".5"/>
+
+  <!-- 鲸鱼标志 -->
+  <g transform="translate(48,16)">
+    <circle cx="40" cy="30" r="36" fill="none" stroke="#3ee0ff" stroke-opacity=".25"/>
+    <circle cx="40" cy="30" r="36" fill="none" stroke="#3ee0ff" stroke-opacity=".15" transform="scale(1.25)" transform-origin="40 30"/>
+    <path d="M10 34 C12 25 22 20 34 22 C46 24 55 30 58 35 C58 39 51 42 42 42 C31 42 21 38 15 35 C11 33 9 35 10 34 Z" fill="url(#whale)"/>
+    <path d="M58 35 C63 31 65 33 63 35 C65 37 63 39 58 35 Z" fill="url(#whale)"/>
+    <circle cx="16" cy="32" r="1.6" fill="#06121f"/>
+    <path d="M11 30 C9 26 11 23 15 21" stroke="#93c5fd" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+  </g>
+  <text x="150" y="38" font-family="Segoe UI, Arial" font-size="24" font-weight="700" letter-spacing="4" fill="#d9ecf9">DEEPSEEK <tspan fill="#3ee0ff">HARNESS</tspan></text>
+  <text x="152" y="62" font-family="Consolas, monospace" font-size="10" letter-spacing="5" fill="#4a6b85">启动器 · LAUNCHER CONSOLE</text>
+
+  <g transform="translate(1010,26)">
+    <rect width="120" height="34" rx="17" fill="#0a1a2c" stroke="#2a5a7a"/>
+    <circle cx="24" cy="17" r="5" fill="#3ddc97"/>
+    <text x="38" y="22" font-family="Consolas, monospace" font-size="11" fill="#d9ecf9">GUI 在线</text>
+  </g>
+  <g transform="translate(1142,26)">
+    <rect width="110" height="34" rx="17" fill="#0a1a2c" stroke="#2a5a7a"/>
+    <text x="16" y="22" font-family="Consolas, monospace" font-size="11" fill="#7d9cb5">LAUNCHER</text>
+    <text x="78" y="22" font-family="Consolas, monospace" font-size="11" fill="#8ff2ff">v1.0</text>
+  </g>
+
+  <!-- 左面板：状态 -->
+  <g transform="translate(40,120)">
+    <rect width="430" height="640" rx="10" fill="#0a1a2c" fill-opacity=".6" stroke="#2a5a7a" stroke-opacity=".6"/>
+    <path d="M0 10 Q0 0 10 0 H42 V14 H12 Q4 14 4 22 Z" fill="#3ee0ff" opacity=".8"/>
+    <path d="M430 10 Q430 0 420 0 H388 V14 H418 Q426 14 426 22 Z" fill="#3ee0ff" opacity=".8"/>
+    <path d="M0 630 Q0 640 10 640 H42 V626 H12 Q4 626 4 618 Z" fill="#3ee0ff" opacity=".8"/>
+    <path d="M430 630 Q430 640 420 640 H388 V626 H418 Q426 626 426 618 Z" fill="#3ee0ff" opacity=".8"/>
+
+    <text x="20" y="28" font-family="Segoe UI, Arial" font-size="12" font-weight="600" letter-spacing="3" fill="#8ff2ff">系统状态 · SYSTEM STATUS</text>
+
+    <!-- 信标 -->
+    <g transform="translate(38,96)">
+      <circle cx="46" cy="46" r="40" fill="none" stroke="#3ddc97" stroke-opacity=".3"/>
+      <circle cx="46" cy="46" r="30" fill="none" stroke="#3ddc97" stroke-opacity=".2"/>
+      <circle cx="46" cy="46" r="11" fill="#3ddc97"/>
+      <circle cx="46" cy="46" r="18" fill="url(#glow)" filter="url(#blur)"/>
+    </g>
+    <text x="158" y="108" font-family="Consolas, monospace" font-size="30" font-weight="700" letter-spacing="5" fill="#3ddc97">ONLINE</text>
+    <text x="160" y="140" font-family="Segoe UI, Arial" font-size="15" font-weight="600" fill="#d9ecf9">DeepSeek Harness 图形界面运行中</text>
+    <text x="160" y="162" font-family="Consolas, monospace" font-size="11" fill="#7d9cb5">已在 http://127.0.0.1:3080 响应 · HTTP 200</text>
+
+    <!-- 地址 -->
+    <rect x="20" y="196" width="390" height="40" rx="8" fill="#02060c" fill-opacity=".7" stroke="#3ee0ff" stroke-opacity=".35" stroke-dasharray="5 4"/>
+    <text x="36" y="221" font-family="Consolas, monospace" font-size="12" fill="#3ee0ff">GUI 地址：http://127.0.0.1:3080</text>
+
+    <!-- 按钮 -->
+    <rect x="20" y="256" width="186" height="46" rx="9" fill="url(#btn)" stroke="#3ee0ff" stroke-opacity=".6"/>
+    <text x="52" y="284" font-family="Segoe UI, Arial" font-size="14" font-weight="600" fill="#d9ecf9">▶ 启动服务 START</text>
+    <rect x="218" y="256" width="192" height="46" rx="9" fill="#0d1420" fill-opacity=".8" stroke="#3a4a5a"/>
+    <text x="250" y="284" font-family="Segoe UI, Arial" font-size="14" font-weight="600" fill="#556677">■ 停止服务 STOP</text>
+    <rect x="20" y="314" width="390" height="42" rx="9" fill="#081422" stroke="#3a4a5a" stroke-dasharray="6 4"/>
+    <text x="60" y="340" font-family="Segoe UI, Arial" font-size="13" font-weight="600" fill="#8fb8cc">↗ 打开界面 OPEN</text>
+
+    <!-- 信息格 -->
+    <g transform="translate(20,376)">
+      <rect width="193" height="52" rx="7" fill="#06101d" stroke="#2a5a7a"/>
+      <text x="12" y="18" font-family="Consolas, monospace" font-size="9" letter-spacing="2" fill="#4a6b85">进程 PID</text>
+      <text x="12" y="38" font-family="Consolas, monospace" font-size="13" fill="#d9ecf9">—</text>
+      <rect x="197" width="193" height="52" rx="7" fill="#06101d" stroke="#2a5a7a"/>
+      <text x="209" y="18" font-family="Consolas, monospace" font-size="9" letter-spacing="2" fill="#4a6b85">监听端口</text>
+      <text x="209" y="38" font-family="Consolas, monospace" font-size="13" fill="#d9ecf9">3080</text>
+    </g>
+    <g transform="translate(20,436)">
+      <rect width="193" height="52" rx="7" fill="#06101d" stroke="#2a5a7a"/>
+      <text x="12" y="18" font-family="Consolas, monospace" font-size="9" letter-spacing="2" fill="#4a6b85">DSH 版本</text>
+      <text x="12" y="38" font-family="Consolas, monospace" font-size="12" fill="#d9ecf9">0.1.0-rc.6</text>
+      <rect x="197" width="193" height="52" rx="7" fill="#06101d" stroke="#2a5a7a"/>
+      <text x="209" y="18" font-family="Consolas, monospace" font-size="9" letter-spacing="2" fill="#4a6b85">DSH_HOME</text>
+      <text x="209" y="38" font-family="Consolas, monospace" font-size="11" fill="#7d9cb5">C:\Users\&lt;you&gt;\.dsh</text>
+    </g>
+  </g>
+
+  <!-- 右面板：日志 -->
+  <g transform="translate(494,120)">
+    <rect width="746" height="640" rx="10" fill="#0a1a2c" fill-opacity=".6" stroke="#2a5a7a" stroke-opacity=".6"/>
+    <path d="M0 10 Q0 0 10 0 H42 V14 H12 Q4 14 4 22 Z" fill="#3ee0ff" opacity=".8"/>
+    <path d="M746 10 Q746 0 736 0 H704 V14 H734 Q742 14 742 22 Z" fill="#3ee0ff" opacity=".8"/>
+    <path d="M0 630 Q0 640 10 640 H42 V626 H12 Q4 626 4 618 Z" fill="#3ee0ff" opacity=".8"/>
+    <path d="M746 630 Q746 640 736 640 H704 V626 H734 Q742 626 742 618 Z" fill="#3ee0ff" opacity=".8"/>
+
+    <!-- 标签栏 -->
+    <text x="24" y="30" font-family="Segoe UI, Arial" font-size="13" font-weight="600" fill="#3ee0ff">◉ 实时日志</text>
+    <text x="130" y="30" font-family="Segoe UI, Arial" font-size="13" fill="#556677">⚡ 快捷任务</text>
+    <text x="238" y="30" font-family="Segoe UI, Arial" font-size="13" fill="#556677">☰ 会话</text>
+    <text x="300" y="30" font-family="Segoe UI, Arial" font-size="13" fill="#556677">⚙ 设置</text>
+    <rect x="24" y="38" width="82" height="2" fill="#3ee0ff"/>
+
+    <!-- 日志区 -->
+    <rect x="20" y="52" width="706" height="568" rx="8" fill="#02060c" fill-opacity=".85" stroke="#2a5a7a" stroke-opacity=".5"/>
+    <g font-family="Consolas, monospace" font-size="12">
+      <text x="36" y="80" fill="#4a6b85">[21:04:12]</text>
+      <text x="112" y="80" fill="#3ee0ff">SYS</text>
+      <text x="156" y="80" fill="#8ff2ff">[启动] dsh web · pid=2841 · port=3080 · host=127.0.0.1</text>
+      <text x="36" y="102" fill="#4a6b85">[21:04:13]</text>
+      <text x="112" y="102" fill="#3ee0ff">SYS</text>
+      <text x="156" y="102" fill="#8ff2ff">[启动] 命令: node …\@deepseek-ai\dsh\lib\bin.js --profile web --port 3080</text>
+      <text x="36" y="124" fill="#4a6b85">[21:04:14]</text>
+      <text x="112" y="124" fill="#3ddc97">OUT</text>
+      <text x="156" y="124" fill="#cfe9f7">[dsh] 正在组合 profile 配置层…</text>
+      <text x="36" y="146" fill="#4a6b85">[21:04:15]</text>
+      <text x="112" y="146" fill="#3ddc97">OUT</text>
+      <text x="156" y="146" fill="#cfe9f7">[dsh] web 服务已绑定 http://127.0.0.1:3080</text>
+      <text x="36" y="168" fill="#4a6b85">[21:04:16]</text>
+      <text x="112" y="168" fill="#3ee0ff">SYS</text>
+      <text x="156" y="168" fill="#8ff2ff">[就绪] GUI 已响应，自动打开浏览器 http://127.0.0.1:3080</text>
+      <text x="36" y="196" fill="#4a6b85">[21:04:21]</text>
+      <text x="112" y="196" fill="#ff9d9d">ERR</text>
+      <text x="156" y="196" fill="#ffc9c9">[warning] 会话索引为内存模式（:memory:），重启后不可检索</text>
+    </g>
+  </g>
+
+  <!-- 底部 -->
+  <line x1="0" y1="776" x2="1280" y2="776" stroke="#2a5a7a" stroke-opacity=".5"/>
+  <text x="40" y="794" font-family="Consolas, monospace" font-size="10" letter-spacing="2" fill="#4a6b85">DSH LAUNCHER · 深海控制台</text>
+  <text x="1080" y="794" font-family="Consolas, monospace" font-size="10" letter-spacing="2" fill="#4a6b85">Ctrl+C 退出后端 · 不会影响已运行的 GUI</text>
+</svg>

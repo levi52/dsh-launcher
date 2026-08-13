@@ -1,0 +1,36 @@
+# ── 依赖与安装产物 ───────────────────────────────
+node_modules/
+
+# ── 本地运行产物 ──────
+# launcher-config.json 在保存设置后生成，包含本机工作区 / DSH_HOME / dsh CLI 路径
+launcher-config.json
+launcher-config.local.json
+launcher.log
+*.log
+npm-debug.log*
+
+# ── 密钥与环境变量文件 ──
+.env
+.env.*
+!.env.example
+
+# ── 系统文件 ─────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ── 编辑器与工具 ────────────────────────────────
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+*.tmp
+
+# ── 测试与覆盖率 ────────────────────────────────
+coverage/

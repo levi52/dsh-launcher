@@ -1,0 +1,9 @@
+{
+  "_comment": "DeepSeek Harness 启动器配置示例。复制为 launcher-config.json 使用（该文件已被 .gitignore 排除，不会入库）。",
+  "guiHost": "127.0.0.1",
+  "guiPort": 3080,
+  "workspace": "",
+  "dshCommand": "",
+  "dshHome": "",
+  "autoOpenGui": true
+}

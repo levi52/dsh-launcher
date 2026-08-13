@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DeepSeek Harness · 启动器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/favicon-512.png" />
+</head>
+<body>
+
+<!-- ===== 深海背景层 ===== -->
+<div class="bg" aria-hidden="true">
+  <div class="bg-abyss"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-noise"></div>
+  <div class="bg-vignette"></div>
+</div>
+
+<!-- ===== 顶部栏 ===== -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" id="brandMark">
+      <svg viewBox="0 0 96 56" class="whale" aria-hidden="true">
+        <defs>
+          <linearGradient id="wg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7dd3fc"/>
+            <stop offset="0.55" stop-color="#38bdf8"/>
+            <stop offset="1" stop-color="#1d4ed8"/>
+          </linearGradient>
+        </defs>
+        <path d="M14 22 C16 13 28 8 44 10 C62 12 78 20 84 28 C84 34 74 40 62 40 C46 40 32 36 22 32 C16 29 12 30 14 22 Z" fill="url(#wg)"/>
+        <path d="M84 28 C92 22 96 25 93 28 C96 31 92 34 84 28 Z" fill="url(#wg)"/>
+        <path d="M40 27 C46 32 47 38 41 41 C44 34 43 30 40 27 Z" fill="#bfdbfe" opacity=".85"/>
+        <path d="M12 34 C28 41 56 43 74 38 C68 42 40 44 12 34 Z" fill="#e0f2fe" opacity=".5"/>
+        <circle cx="22" cy="26" r="2.1" fill="#06121f"/>
+        <path d="M16 20 C13 14 16 10 21 7 M16 20 C19 13 23 10 25 6 M16 20 C21 16 27 12 29 8" stroke="#93c5fd" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        <circle cx="8" cy="20" r="1.5" fill="#93c5fd" opacity=".9"/>
+        <circle cx="5" cy="15" r="1.1" fill="#93c5fd" opacity=".7"/>
+        <circle cx="9" cy="11" r="0.8" fill="#93c5fd" opacity=".5"/>
+      </svg>
+      <span class="sonar sonar-1"></span>
+      <span class="sonar sonar-2"></span>
+    </div>
+    <div class="brand-text">
+      <h1>DEEPSEEK <em>HARNESS</em></h1>
+      <p>启动器 · LAUNCHER CONSOLE</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="chip chip-dim">
+      <span class="chip-key">LAUNCHER</span>
+      <b id="launcherVersion">—</b>
+    </div>
+    <div class="chip">
+      <span class="dot dot-gui" id="guiDot"></span>
+      <span class="chip-key">GUI</span>
+      <b id="guiStateText">检测中</b>
+    </div>
+    <button class="btn-power" id="btnShutdown" title="退出启动器后端进程"><span class="btn-glyph">⏻</span>关闭启动器</button>
+  </div>
+</header>
+
+<!-- ===== 主甲板 ===== -->
+<main class="deck">
+
+  <!-- 左：状态控制台 -->
+  <section class="panel panel-status" id="panelStatus">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <div class="panel-head">
+      <span class="panel-title">系统状态 · SYSTEM STATUS</span>
+      <span class="panel-tag" id="statusTag">STANDBY</span>
+    </div>
+
+    <div class="status-hero">
+      <div class="beacon-wrap">
+        <div class="beacon" id="beacon"></div>
+        <span class="ring r1"></span>
+        <span class="ring r2"></span>
+        <span class="ring r3"></span>
+      </div>
+      <div class="hero-text">
+        <div class="hero-state" id="heroState">OFFLINE</div>
+        <div class="hero-title" id="heroTitle">服务未运行</div>
+        <div class="hero-sub" id="heroSub">点击「启动服务」拉起 dsh web</div>
+      </div>
+    </div>
+
+    <div class="url-row">
+      <span class="lbl">GUI 地址</span>
+      <code id="guiUrl">—</code>
+      <button class="mini-btn" id="btnCopyUrl" title="复制地址">复制</button>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btnStart"><span class="btn-glyph">▶</span>启动服务 <i>START</i></button>
+      <button class="btn btn-danger" id="btnStop" disabled><span class="btn-glyph">■</span>停止服务 <i>STOP</i></button>
+      <button class="btn btn-ghost" id="btnOpen" disabled><span class="btn-glyph">↗</span>打开界面 <i>OPEN</i></button>
+      <button class="btn btn-ghost btn-adopt" id="btnAdopt" hidden title="接管由其他启动器实例管理的进程，之后即可停止"><span class="btn-glyph">⇄</span>接管控制 <i>ADOPT</i></button>
+      <button class="btn btn-ghost btn-danger-outline" id="btnForceStop" title="查找占用 GUI 端口的进程并强制终止"><span class="btn-glyph">⛔</span>强制停止端口进程 <i>FORCE KILL</i></button>
+    </div>
+
+    <div class="infogrid">
+      <div class="infocell"><span class="infok">进程 PID</span><b id="infoPid">—</b></div>
+      <div class="infocell"><span class="infok">监听端口</span><b id="infoPort">—</b></div>
+      <div class="infocell"><span class="infok">工作区</span><b class="infopath" id="infoWorkspace" title="">—</b></div>
+      <div class="infocell"><span class="infok">启动时刻</span><b id="infoSince">—</b></div>
+    </div>
+
+    <div class="meta-row">
+      <div class="meta-cell"><span>DSH 版本</span><b id="metaDshVersion">—</b></div>
+      <div class="meta-cell"><span>Node</span><b id="metaNode">—</b></div>
+      <div class="meta-cell"><span>DSH_HOME</span><b class="infopath" id="metaHome" title="">—</b></div>
+      <div class="meta-cell"><span>Profiles</span><b id="metaProfiles">—</b></div>
+    </div>
+  </section>
+
+  <!-- 右：标签面板 -->
+  <section class="panel panel-tabs" id="panelTabs">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+    <nav class="tabbar" id="tabbar">
+      <button class="tab is-active" data-view="log"><span>◉</span>日志 <i>LOG</i></button>
+      <button class="tab" data-view="tasks"><span>⚡</span>快捷任务 <i>TASKS</i></button>
+      <button class="tab" data-view="sessions"><span>☰</span>会话 <i>SESSIONS</i></button>
+      <button class="tab" data-view="settings"><span>⚙</span>设置 <i>SETTINGS</i></button>
+      <span class="tab-underline" id="tabUnderline"></span>
+    </nav>
+
+    <!-- 日志 -->
+    <div class="view" id="view-log">
+      <div class="log-bar">
+        <span class="lbl">输出流 · STDOUT/STDERR</span>
+        <div class="log-ctrl">
+          <label class="switch"><input type="checkbox" id="chkAutoscroll" checked /><span class="track"></span><span class="sw-lbl">自动滚动</span></label>
+          <button class="mini-btn" id="btnClearLog">清空</button>
+        </div>
+      </div>
+      <div class="log-hint">dsh web 启动后终端输出较少，agent 活动请在 GUI 会话视图中查看；本面板持续推送进程输出。</div>
+      <div class="log" id="log" role="log" aria-live="polite">
+        <div class="log-empty" id="logEmpty">等待输出……<br/><span>AWAITING TRANSMISSION</span></div>
+      </div>
+    </div>
+
+    <!-- 快捷任务 -->
+    <div class="view" id="view-tasks" hidden>
+      <div class="task-intro">
+        <p>在下方输入一个任务，启动器会以 <code>dsh --profile headless "…"</code> 拉起一次性持久化会话，实时输出执行过程。</p>
+      </div>
+      <div class="task-box">
+        <textarea id="taskInput" rows="3" placeholder="例如：统计当前目录下的文件数量，并生成一份 markdown 报告…"></textarea>
+        <div class="task-actions">
+          <button class="btn btn-primary btn-sm" id="btnRunTask"><span class="btn-glyph">⚡</span>运行任务 <i>RUN</i></button>
+          <button class="btn btn-ghost btn-sm" id="btnCancelTask" disabled><span class="btn-glyph">■</span>取消任务 <i>CANCEL</i></button>
+          <span class="task-status" id="taskStatus">空闲 IDLE</span>
+        </div>
+      </div>
+      <div class="task-output" id="taskOutput" hidden>
+        <div class="log-bar"><span class="lbl">任务输出 · TASK OUTPUT</span><span class="exit-chip" id="taskExit">EXIT —</span></div>
+        <div class="log log-sm" id="taskLog"></div>
+      </div>
+    </div>
+
+    <!-- 会话 -->
+    <div class="view" id="view-sessions" hidden>
+      <div class="log-bar"><span class="lbl">DSH_HOME/sessions 工作区会话</span><button class="mini-btn" id="btnRefreshSessions">刷新</button></div>
+      <div class="sess-list" id="sessList"></div>
+    </div>
+
+    <!-- 设置 -->
+    <div class="view" id="view-settings" hidden>
+      <div class="settings-grid">
+        <label class="field">
+          <span class="f-label">GUI 端口 <i>GUI PORT</i></span>
+          <input type="number" id="setGuiPort" min="1" max="65535" />
+        </label>
+        <label class="field">
+          <span class="f-label">GUI 主机 <i>GUI HOST</i></span>
+          <input type="text" id="setGuiHost" placeholder="127.0.0.1" />
+        </label>
+        <label class="field field-wide">
+          <span class="f-label">工作区目录 <i>WORKSPACE</i></span>
+          <div class="input-row">
+            <input type="text" id="setWorkspace" placeholder="dsh 启动时所在目录" />
+            <button class="mini-btn" data-explore="workspace">打开</button>
+          </div>
+        </label>
+        <label class="field field-wide">
+          <span class="f-label">dsh CLI 入口 <i>DSH BIN</i></span>
+          <div class="input-row">
+            <input type="text" id="setDshCommand" placeholder="留空自动探测 npx 缓存中的 @deepseek-ai/dsh" />
+            <button class="mini-btn" data-explore="dsh">定位</button>
+          </div>
+        </label>
+        <label class="field field-wide">
+          <span class="f-label">DSH_HOME 覆盖 <i>DSH_HOME OVERRIDE</i></span>
+          <div class="input-row">
+            <input type="text" id="setDshHome" placeholder="留空使用系统环境变量" />
+            <button class="mini-btn" data-explore="home">打开</button>
+          </div>
+        </label>
+        <label class="field field-wide switch-field">
+          <span class="f-label">启动成功后自动打开浏览器 <i>AUTO OPEN GUI</i></span>
+          <label class="switch"><input type="checkbox" id="setAutoOpen" /><span class="track"></span><span class="sw-lbl">开启</span></label>
+        </label>
+      </div>
+      <div class="settings-foot">
+        <button class="btn btn-primary btn-sm" id="btnSaveConfig"><span class="btn-glyph">✓</span>保存配置 <i>SAVE</i></button>
+        <span class="task-status" id="saveStatus"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===== 底部栏 ===== -->
+<footer class="footbar">
+  <span class="foot-left"><i class="foot-dot"></i> DSH LAUNCHER · 深海控制台</span>
+  <span class="foot-right">Ctrl+C 退出后端 · 不会影响已运行的 GUI</span>
+</footer>
+
+<div id="toasts"></div>
+
+<!-- 关闭后全屏提示 -->
+<div id="shutdownOverlay" hidden>
+  <div class="shutdown-box">
+    <div class="shutdown-icon">⏻</div>
+    <h2>启动器已关闭</h2>
+    <p>后端进程已退出，可以关闭此标签页。<br/>如需重新打开，请再次运行 <code>start-launcher.bat</code> 或 <code>npm start</code>。</p>
+  </div>
+</div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

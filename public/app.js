@@ -1,0 +1,587 @@
+/* ============================================================
+   DeepSeek Harness · 启动器 —— 前端逻辑
+   ============================================================ */
+
+"use strict";
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+const els = {
+  launcherVersion: $("#launcherVersion"),
+  guiDot: $("#guiDot"),
+  guiStateText: $("#guiStateText"),
+  statusTag: $("#statusTag"),
+  beacon: $("#beacon"),
+  heroState: $("#heroState"),
+  heroTitle: $("#heroTitle"),
+  heroSub: $("#heroSub"),
+  guiUrl: $("#guiUrl"),
+  btnCopyUrl: $("#btnCopyUrl"),
+  btnStart: $("#btnStart"),
+  btnStop: $("#btnStop"),
+  btnOpen: $("#btnOpen"),
+  btnForceStop: $("#btnForceStop"),
+  btnAdopt: $("#btnAdopt"),
+  btnShutdown: $("#btnShutdown"),
+  infoPid: $("#infoPid"),
+  infoPort: $("#infoPort"),
+  infoWorkspace: $("#infoWorkspace"),
+  infoSince: $("#infoSince"),
+  metaDshVersion: $("#metaDshVersion"),
+  metaNode: $("#metaNode"),
+  metaHome: $("#metaHome"),
+  metaProfiles: $("#metaProfiles"),
+  tabbar: $("#tabbar"),
+  tabs: $$(".tab"),
+  tabUnderline: $("#tabUnderline"),
+  log: $("#log"),
+  logEmpty: $("#logEmpty"),
+  chkAutoscroll: $("#chkAutoscroll"),
+  btnClearLog: $("#btnClearLog"),
+  taskInput: $("#taskInput"),
+  btnRunTask: $("#btnRunTask"),
+  btnCancelTask: $("#btnCancelTask"),
+  taskStatus: $("#taskStatus"),
+  taskOutput: $("#taskOutput"),
+  taskExit: $("#taskExit"),
+  taskLog: $("#taskLog"),
+  sessList: $("#sessList"),
+  btnRefreshSessions: $("#btnRefreshSessions"),
+  setGuiPort: $("#setGuiPort"),
+  setGuiHost: $("#setGuiHost"),
+  setWorkspace: $("#setWorkspace"),
+  setDshCommand: $("#setDshCommand"),
+  setDshHome: $("#setDshHome"),
+  setAutoOpen: $("#setAutoOpen"),
+  btnSaveConfig: $("#btnSaveConfig"),
+  saveStatus: $("#saveStatus"),
+  toasts: $("#toasts"),
+};
+
+/* ---------- 状态 ---------- */
+
+let state = null;
+let lastLogTime = 0;
+let firstSnapshotDone = false;
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+function fmtClock(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
+
+function fmtAgo(ms) {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 60) return `${s}s 前`;
+  if (s < 3600) return `${Math.floor(s / 60)}m 前`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h 前`;
+  return `${Math.floor(s / 86400)}d 前`;
+}
+
+/* ---------- 渲染状态 ---------- */
+
+function renderState(s) {
+  state = s;
+  const guiOnline = s.gui.online;
+  const childRunning = s.child.running;
+  const stopping = s.stopping && childRunning;
+  const starting = childRunning && !guiOnline && !stopping;
+
+  els.launcherVersion.textContent = "v" + s.launcher.version;
+
+  // GUI 状态点
+  els.guiDot.className = "dot" + (guiOnline ? " on" : childRunning ? " warn" : " off");
+  els.guiStateText.textContent = guiOnline ? `在线 ${s.gui.latencyMs}ms` : stopping ? "停止中" : starting ? "启动中" : "离线";
+
+  // 状态标签与英雄区
+  els.statusTag.className = "panel-tag" + (guiOnline ? " live" : starting ? " boot" : stopping ? " boot" : " off");
+  els.statusTag.textContent = guiOnline ? "ONLINE" : starting ? "BOOTING" : stopping ? "STOPPING" : "STANDBY";
+
+  els.beacon.className = "beacon" + (guiOnline ? " on" : starting || stopping ? " boot" : " off");
+  els.heroState.className = "hero-state" + (guiOnline ? " on" : starting || stopping ? " boot" : " off");
+  els.heroState.textContent = guiOnline ? "ONLINE" : starting ? "BOOTING" : stopping ? "STOPPING" : "OFFLINE";
+  els.heroTitle.textContent = guiOnline
+    ? "DeepSeek Harness 图形界面运行中"
+    : starting
+      ? "正在拉起 dsh web 服务…"
+      : stopping
+        ? "正在停止服务…"
+        : "服务未运行";
+  els.heroSub.textContent = guiOnline
+    ? (s.managedBy && !childRunning
+        ? `由启动器 PID ${s.managedBy.launcherPid} 管理 · dsh pid ${s.managedBy.dshPid} · 可接管`
+        : `已在 ${s.gui.url} 响应 · HTTP ${s.gui.status}`)
+    : starting
+      ? `等待 ${s.gui.url} 就绪…`
+      : stopping
+        ? "正在终止由启动器拉起的进程"
+        : "点击「启动服务」拉起 dsh web";
+
+  // GUI 地址
+  els.guiUrl.textContent = s.gui.url;
+
+  // 接管按钮：GUI 在线、本实例未管理、且有其他实例的登记时显示
+  const adoptable = guiOnline && !childRunning && !!s.managedBy;
+  els.btnAdopt.hidden = !adoptable;
+
+  // 按钮
+  els.btnStart.disabled = guiOnline;
+  els.btnStop.disabled = !childRunning;
+  els.btnOpen.disabled = !guiOnline;
+  els.btnStart.classList.toggle("btn-spin", starting);
+
+  // 信息格
+  els.infoPid.textContent = childRunning ? String(s.child.pid) : "—";
+  els.infoPort.textContent = s.config.guiPort;
+  els.infoWorkspace.textContent = s.config.workspace || "—";
+  els.infoWorkspace.title = s.config.workspace || "";
+  els.infoSince.textContent = childRunning ? fmtClock(s.child.startedAt) : "—";
+
+  // 元信息
+  els.metaDshVersion.textContent = s.dsh.version || "未知";
+  els.metaNode.textContent = s.dsh.nodeVersion || "—";
+  els.metaHome.textContent = s.dsh.home;
+  els.metaHome.title = s.dsh.home;
+  els.metaProfiles.textContent = s.dsh.profiles.length ? s.dsh.profiles.join(" · ") : "—";
+
+  // 快捷任务状态（仅在任务视图可见时更新文字）
+  if (s.headless.running) {
+    els.taskStatus.textContent = "运行中 RUNNING…";
+    els.taskStatus.className = "task-status run";
+    els.btnRunTask.disabled = true;
+    els.btnCancelTask.disabled = false;
+  } else if (s.headless.exitCode !== null) {
+    els.btnRunTask.disabled = false;
+    els.btnCancelTask.disabled = true;
+    if (s.headless.exitCode === 0) {
+      els.taskStatus.textContent = "完成 DONE";
+      els.taskStatus.className = "task-status done";
+    } else {
+      els.taskStatus.textContent = `失败 EXIT ${s.headless.exitCode}`;
+      els.taskStatus.className = "task-status fail";
+    }
+  } else {
+    els.btnRunTask.disabled = false;
+    els.btnCancelTask.disabled = true;
+    els.taskStatus.textContent = "空闲 IDLE";
+    els.taskStatus.className = "task-status";
+  }
+
+  // 设置表单（仅首次快照填充，避免覆盖用户输入）
+  if (!firstSnapshotDone) {
+    els.setGuiPort.value = s.config.guiPort;
+    els.setGuiHost.value = s.config.guiHost;
+    els.setWorkspace.value = s.config.workspace || "";
+    els.setDshCommand.value = s.config.dshCommand || "";
+    els.setDshHome.value = s.config.dshHome || "";
+    els.setAutoOpen.checked = !!s.config.autoOpenGui;
+  }
+
+  if (!firstSnapshotDone) {
+    firstSnapshotDone = true;
+    renderSessions(s.dsh.sessions);
+  }
+}
+
+/* ---------- 日志渲染 ---------- */
+
+// 极简 ANSI 解析：仅处理常见前景色/粗体/重置
+function ansiToHtml(text) {
+  let out = "";
+  let bold = false;
+  const tokens = text.split(/(\x1b\[[0-9;]*m)/g);
+  for (const tok of tokens) {
+    if (!tok) continue;
+    const m = tok.match(/^\x1b\[([0-9;]*)m$/);
+    if (m) {
+      const codes = m[1] ? m[1].split(";").map(Number) : [0];
+      for (const c of codes) {
+        if (c === 0) { bold = false; out += "</span>".repeat(0); }
+        if (c === 1) bold = true;
+      }
+      continue;
+    }
+    let html = tok.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (bold) html = `<span class="b">${html}</span>`;
+    out += html;
+  }
+  return out;
+}
+
+function appendLogLine(line, target) {
+  const streamLabel = { sys: "SYS", out: "OUT", err: "ERR" }[line.stream] || "·";
+  const div = document.createElement("div");
+  div.className = `log-line stream-${line.stream}`;
+  div.innerHTML =
+    `<span class="log-time">${fmtTime(line.t)}</span>` +
+    `<span class="log-stream">${streamLabel}</span>` +
+    `<span class="log-body">${ansiToHtml(line.text)}</span>`;
+  target.appendChild(div);
+
+  const empty = target.querySelector(".log-empty");
+  if (empty) empty.remove();
+}
+
+function appendLog(line) {
+  appendLogLine(line, els.log);
+  if (els.chkAutoscroll.checked) els.log.scrollTop = els.log.scrollHeight;
+}
+
+function clearLog() {
+  els.log.innerHTML = "";
+}
+
+/* ---------- 标签页 ---------- */
+
+function setTab(name) {
+  els.tabs.forEach((t) => t.classList.toggle("is-active", t.dataset.view === name));
+  $$(".view").forEach((v) => { v.hidden = v.id !== `view-${name}`; });
+  const active = els.tabs.find((t) => t.dataset.view === name);
+  const parent = els.tabbar.getBoundingClientRect();
+  const rect = active.getBoundingClientRect();
+  els.tabUnderline.style.transform = `translateX(${rect.left - parent.left}px)`;
+  els.tabUnderline.style.width = `${rect.width}px`;
+  if (name === "sessions" && state) renderSessions(state.dsh.sessions);
+  if (name === "settings" && state) fillSettings();
+}
+
+els.tabs.forEach((t) => t.addEventListener("click", () => setTab(t.dataset.view)));
+
+/* ---------- 会话 ---------- */
+
+function renderSessions(sessions) {
+  if (!sessions || !sessions.length) {
+    els.sessList.innerHTML = `<div class="sess-empty">暂无会话记录<br/><span style="font-size:9px;letter-spacing:.3em;opacity:.6">NO SESSIONS FOUND</span></div>`;
+    return;
+  }
+  els.sessList.innerHTML = "";
+  sessions.forEach((sess, i) => {
+    const item = document.createElement("div");
+    item.className = "sess-item";
+    item.style.animationDelay = `${Math.min(i * 0.04, 0.4)}s`;
+    item.innerHTML = `
+      <div class="sess-icon">☰</div>
+      <div class="sess-main">
+        <div class="sess-name" title="${sess.key}">${esc(sess.name)}</div>
+        <div class="sess-sub">${esc(sess.path)}</div>
+      </div>
+      <div class="sess-meta">
+        <span class="sess-time">${fmtAgo(sess.mtime)}</span>
+        <span class="sess-count">${sess.sessions} 次会话</span>
+      </div>
+      <button class="mini-btn" data-explore="${esc(sess.path)}">打开</button>
+    `;
+    item.querySelector("[data-explore]").addEventListener("click", (e) => {
+      explore(e.currentTarget.dataset.explore);
+    });
+    els.sessList.appendChild(item);
+  });
+}
+
+/* ---------- 设置 ---------- */
+
+function fillSettings() {
+  if (!state) return;
+  els.setGuiPort.value = state.config.guiPort;
+  els.setGuiHost.value = state.config.guiHost;
+  els.setWorkspace.value = state.config.workspace || "";
+  els.setDshCommand.value = state.config.dshCommand || "";
+  els.setDshHome.value = state.config.dshHome || "";
+  els.setAutoOpen.checked = !!state.config.autoOpenGui;
+}
+
+async function saveConfig() {
+  const patch = {
+    guiPort: Number(els.setGuiPort.value),
+    guiHost: els.setGuiHost.value.trim() || "127.0.0.1",
+    workspace: els.setWorkspace.value.trim(),
+    dshCommand: els.setDshCommand.value.trim(),
+    dshHome: els.setDshHome.value.trim(),
+    autoOpenGui: els.setAutoOpen.checked,
+  };
+  els.saveStatus.textContent = "保存中…";
+  try {
+    const res = await fetch("/api/save-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "保存失败");
+    els.saveStatus.textContent = "已保存 ✓";
+    toast("配置已保存", "ok");
+    setTimeout(() => { els.saveStatus.textContent = ""; }, 3000);
+  } catch (err) {
+    els.saveStatus.textContent = "保存失败";
+    toast(err.message, "err");
+  }
+}
+
+/* ---------- 动作 ---------- */
+
+async function post(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok && !data.ok) throw Object.assign(new Error(data.message || `HTTP ${res.status}`), { code: data.code });
+  return data;
+}
+
+async function doStart() {
+  if (!state || state.gui.online) return;
+  els.btnStart.disabled = true;
+  toast("正在启动 dsh web …", "ok");
+  try {
+    await post("/api/start", {});
+  } catch (err) {
+    if (err.code === "port-busy") {
+      toast("端口已被占用，GUI 似乎已在运行，可直接打开界面", "ok");
+      openGui();
+    } else {
+      toast(err.message, "err");
+      els.btnStart.disabled = false;
+    }
+  }
+}
+
+async function doStop() {
+  if (!state || !state.child.running) return;
+  if (!confirm("确定要停止由启动器拉起的 dsh web 进程吗？")) return;
+  try {
+    await post("/api/stop", {});
+    toast("已发送停止信号", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
+
+async function doForceStop() {
+  if (!state) return;
+  const port = state.config.guiPort;
+  const target = state.child.running
+    ? `由启动器拉起的进程（PID ${state.child.pid}）`
+    : `占用端口 ${port} 的进程`;
+  const msg =
+    `即将强制终止${target}。\n\n` +
+    `⚠ 注意：如果该进程是当前正在使用的 Harness 会话，` +
+    `终止后会话会立即断开、数据可能丢失！\n\n确定要继续吗？`;
+  if (!confirm(msg)) return;
+  try {
+    const data = await post("/api/force-stop", { port });
+    toast(`已终止：${data.killed.join(", ")}`, "ok");
+  } catch (err) {
+    if (err.code === "no-listener") toast(err.message, "warn");
+    else toast(err.message, "err");
+  }
+}
+
+async function doAdopt() {
+  if (!state || !state.gui.online) return;
+  try {
+    const data = await post("/api/adopt", {});
+    toast(`已接管进程 ${data.pid}，现在可以停止或继续管理`, "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
+
+async function openGui() {
+  if (!state || !state.gui.online) return;
+  window.open(state.gui.url, "_blank");
+}
+
+function copyUrl() {
+  if (!state) return;
+  navigator.clipboard?.writeText(state.gui.url).then(
+    () => toast("地址已复制", "ok"),
+    () => toast("复制失败，请手动选择复制", "err")
+  );
+}
+
+async function runTask() {
+  const task = els.taskInput.value.trim();
+  if (!task) { toast("请先输入任务内容", "err"); return; }
+  els.btnRunTask.disabled = true;
+  els.taskStatus.textContent = "运行中 RUNNING…";
+  els.taskStatus.className = "task-status run";
+  els.taskOutput.hidden = false;
+  els.taskLog.innerHTML = "";
+  els.taskExit.textContent = "EXIT —";
+  els.taskExit.className = "exit-chip";
+  try {
+    await post("/api/headless", { task });
+  } catch (err) {
+    toast(err.message, "err");
+    els.btnRunTask.disabled = false;
+    els.taskStatus.textContent = "启动失败";
+    els.taskStatus.className = "task-status fail";
+  }
+}
+
+async function cancelTask() {
+  if (!state || !state.headless.running) return;
+  if (!confirm("确定要取消正在运行的 headless 任务吗？")) return;
+  try {
+    const data = await post("/api/headless-cancel", {});
+    if (!data.ok) throw new Error(data.message || "取消失败");
+    toast("已发送取消信号", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
+
+async function explore(pathToOpen) {
+  try {
+    const data = await post("/api/explore", { path: pathToOpen });
+    if (!data.ok) toast(data.message || "无法打开", "err");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
+
+/* ---------- 关闭启动器 ---------- */
+
+function showShutdownOverlay() {
+  document.getElementById("shutdownOverlay").hidden = false;
+  document.body.classList.add("shutdown");
+}
+
+async function doShutdown() {
+  if (!state) return;
+  const stopsOwned = state.child.running && !state.child.adopted;
+  const msg =
+    "确定要关闭启动器吗？关闭后：\n" +
+    "· 启动器后端进程将退出，本页面无法再控制服务\n" +
+    (stopsOwned ? "· 由启动器拉起的 dsh web 会一并停止\n" : "· 已接管的 dsh web 会保持运行\n") +
+    "· 所有权登记将被释放\n\n继续？";
+  if (!confirm(msg)) return;
+  try {
+    await post("/api/shutdown", {});
+  } catch { /* 后端已退出，请求失败属正常 */ }
+  showShutdownOverlay();
+}
+
+/* ---------- Toast ---------- */
+
+function toast(msg, kind = "") {
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`;
+  el.textContent = msg;
+  els.toasts.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 320);
+  }, 3800);
+}
+
+/* ---------- 工具 ---------- */
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* ---------- SSE ---------- */
+
+function connectSSE() {
+  const es = new EventSource("/api/events");
+  es.addEventListener("state", (e) => {
+    renderState(JSON.parse(e.data));
+  });
+  es.addEventListener("line", (e) => {
+    const line = JSON.parse(e.data);
+    lastLogTime = Math.max(lastLogTime, line.t);
+    appendLog(line);
+    // headless 输出同时进任务面板
+    if (!els.taskOutput.hidden && els.taskLog) appendLogLine(line, els.taskLog);
+  });
+  es.addEventListener("headless-start", (e) => {
+    const d = JSON.parse(e.data);
+    appendLogLine({ t: Date.now(), stream: "sys", text: `[任务] 已启动 pid=${d.pid}：${d.task}` }, els.taskLog);
+  });
+  es.addEventListener("headless-result", (e) => {
+    const d = JSON.parse(e.data);
+    els.btnRunTask.disabled = false;
+    const ok = d.exitCode === 0;
+    els.taskStatus.textContent = ok ? "完成 DONE" : `失败 EXIT ${d.exitCode}`;
+    els.taskStatus.className = ok ? "task-status done" : "task-status fail";
+    els.taskExit.textContent = `EXIT ${d.exitCode}`;
+    els.taskExit.className = "exit-chip " + (ok ? "ok" : "fail");
+    toast(ok ? "任务执行完成" : `任务退出码 ${d.exitCode}`, ok ? "ok" : "err");
+  });
+  es.onerror = () => {
+    // 断线时提示一次；EventSource 会自动重连
+  };
+}
+
+/* ---------- 绑定事件 ---------- */
+
+els.btnStart.addEventListener("click", doStart);
+els.btnStop.addEventListener("click", doStop);
+els.btnForceStop.addEventListener("click", doForceStop);
+els.btnAdopt.addEventListener("click", doAdopt);
+els.btnShutdown.addEventListener("click", doShutdown);
+els.btnOpen.addEventListener("click", openGui);
+els.btnCopyUrl.addEventListener("click", copyUrl);
+els.btnClearLog.addEventListener("click", clearLog);
+els.btnRunTask.addEventListener("click", runTask);
+els.btnCancelTask.addEventListener("click", cancelTask);
+els.btnRefreshSessions.addEventListener("click", async () => {
+  const res = await fetch("/api/state");
+  const s = await res.json();
+  renderSessions(s.dsh.sessions);
+  toast("会话列表已刷新", "ok");
+});
+els.btnSaveConfig.addEventListener("click", saveConfig);
+els.infoWorkspace.addEventListener("click", () => explore(els.infoWorkspace.textContent));
+els.metaHome.addEventListener("click", () => explore(els.metaHome.textContent));
+
+// 设置页「打开」按钮
+$$("[data-explore]").forEach((btn) => {
+  if (btn.dataset.explore === "workspace") btn.addEventListener("click", () => explore(els.setWorkspace.value || state?.config.workspace));
+  else if (btn.dataset.explore === "home") btn.addEventListener("click", () => explore(els.setDshHome.value || state?.dsh.home));
+  else if (btn.dataset.explore === "dsh") {
+    btn.addEventListener("click", () => {
+      const bin = state?.dsh.bin || els.setDshCommand.value;
+      if (bin && /^[A-Za-z]:[\\/]/.test(bin)) {
+        // 浏览器环境没有 path 模块：手动去掉文件名取所在目录
+        const dir = bin.replace(/[\\/][^\\/]+$/, "");
+        explore(dir || bin);
+      } else {
+        toast("当前 dsh CLI 不是本地路径（可能是 npx 命令）", "err");
+      }
+    });
+  }
+});
+
+// 快捷键：Ctrl+Enter 运行任务
+els.taskInput.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runTask();
+});
+
+window.addEventListener("resize", () => {
+  const active = els.tabs.find((t) => t.classList.contains("is-active"));
+  if (active) setTab(active.dataset.view);
+});
+
+/* ---------- 初始化 ---------- */
+
+setTab("log");
+connectSSE();
+
+// 兜底轮询（EventSource 之外的保险）
+setInterval(async () => {
+  try {
+    const res = await fetch("/api/state");
+    const s = await res.json();
+    renderState(s);
+  } catch { /* 后端暂时不可达 */ }
+}, 15000);
