@@ -16,6 +16,7 @@ const root = path.join(__dirname, "..");
 const svgPath = path.join(root, "public", "favicon.svg");
 const icoPath = path.join(root, "public", "favicon.ico");
 const png512Path = path.join(root, "public", "favicon-512.png");
+const png192Path = path.join(root, "public", "favicon-192.png");
 const SIZES = [16, 24, 32, 48, 64, 128, 256];
 
 if (!fs.existsSync(svgPath)) {
@@ -77,6 +78,11 @@ for (const size of SIZES) {
 const big512 = await sharp(svg).resize(512, 512).png().toBuffer();
 fs.writeFileSync(png512Path, big512);
 console.log(`已生成 ${path.relative(root, png512Path)}`);
+
+// PWA 图标：192x192（manifest 安装必需）
+const big192 = await sharp(svg).resize(192, 192).png().toBuffer();
+fs.writeFileSync(png192Path, big192);
+console.log(`已生成 ${path.relative(root, png192Path)}`);
 
 /* ---------- 组装 ICO（PNG 帧，Vista+ 兼容） ---------- */
 // 布局：ICONDIR(6B) → 全部 ICONDIRENTRY(16B × N) → 全部图像数据

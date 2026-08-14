@@ -709,6 +709,13 @@ window.addEventListener("resize", () => {
   if (active) setTab(active.dataset.view);
 });
 
+// PWA：注册 Service Worker（本地 http 属安全上下文，注册失败静默忽略）
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => { /* 不支持时忽略 */ });
+  });
+}
+
 /* ---------- 初始化 ---------- */
 
 // 主题：同步切换器与当前生效主题，监听变更

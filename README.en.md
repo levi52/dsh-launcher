@@ -31,6 +31,7 @@ English · [中文](README.md)
 - 🔁 **Multi-instance adoption**: launcher instances share a claims registry (`$DSH_HOME/dsh-launcher/claims.json`) to identify who started the Web UI; another instance can take over ("Adopt") and then stop it normally
 - 🔔 **Install & update check**: shows whether dsh is installed and its source (npx cache / global install), compares against the npm registry latest version (1h cache), highlights new versions, one-click manual re-check
 - 🔒 **Local by design**: binds to `127.0.0.1` only, never touches credentials, config stays on your machine
+- 📲 **Installable as an app**: PWA support (manifest + Service Worker) — "Install" from the browser address bar to run in a standalone window with the whale icon
 
 ## Quick Start
 
