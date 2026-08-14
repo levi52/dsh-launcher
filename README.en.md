@@ -27,7 +27,7 @@ English · [中文](README.md)
 - ⚡ **Quick tasks**: run one-shot persistent sessions via `dsh --profile headless "<task>"`, with live output, exit code, and cancellation
 - ☰ **Session browser**: lists workspaces under `$DSH_HOME/sessions`, opens any folder in your file explorer
 - ⛔ **Force stop**: "Stop" only affects processes the launcher spawned itself; "Force kill port owner" finds and terminates whatever holds the Web UI port (with confirmation)
-- 🧩 **Auto-detects the dsh CLI**: npx cache → global npm install → `npx -y @deepseek-ai/dsh` fallback; fully overridable
+- 🧩 **Auto-detects the dsh CLI**: global npm install → npx cache → `npx -y @deepseek-ai/dsh` fallback; fully overridable
 - 🔁 **Multi-instance adoption**: launcher instances share a claims registry (`$DSH_HOME/dsh-launcher/claims.json`) to identify who started the Web UI; another instance can take over ("Adopt") and then stop it normally
 - 🔔 **Install & update check**: shows whether dsh is installed and its source (npx cache / global install), compares against the npm registry latest version (1h cache), highlights new versions, one-click manual re-check
 - 🔒 **Local by design**: binds to `127.0.0.1` only, never touches credentials, config stays on your machine
@@ -58,7 +58,7 @@ The console opens automatically at <http://127.0.0.1:3090>. On Windows you can a
 | **Logs** | Main output stream: all stdout/stderr of dsh web and headless tasks |
 | **Quick Tasks** | Run/cancel headless tasks in a dedicated output panel |
 | **Sessions** | Workspace session list (name / path / last activity / count), open the folder in your file explorer |
-| **Settings** | Web UI port & host, workspace, dsh CLI entry, DSH_HOME override, auto-open browser |
+| **Settings** | Web UI port & host, workspace, dsh CLI entry, DSH_HOME override, auto-open browser; the "Found dsh installs" list shows every dsh on the machine (global / npx cache) with the active one marked |
 | **Themes** | Switch in the top bar: Deep Sea (default dark) / Neo-Brutalism / Claude; your choice is saved in the browser |
 
 ## Configuration
@@ -99,9 +99,9 @@ Launcher port: `node launcher.js --port 3100` or `DSH_LAUNCHER_PORT` (default 30
 
 ## How It Works
 
-- **dsh CLI detection**: uses the configured `dshCommand` first, then scans the npx cache (`%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\@deepseek-ai\dsh\lib\bin.js`) and global npm installs; finally falls back to `npx -y @deepseek-ai/dsh` (requires network). Local `bin.js` entries are executed with the current Node runtime.
+- **dsh CLI detection**: uses the configured `dshCommand` first, then scans global npm installs and the npx cache (`%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\@deepseek-ai\dsh\lib\bin.js`); finally falls back to `npx -y @deepseek-ai/dsh` (requires network). Global installs win so the launcher matches the `dsh` command in your terminal. Local `bin.js` entries are executed with the current Node runtime.
 - **Port in use**: if the target port is already occupied by a process the launcher did not spawn, it reports "Web UI appears to be running" and opens the UI instead of stealing the port.
-- **Stop semantics**: "Stop" only affects processes the launcher spawned itself (safe by design); use "Force kill port owner" for other instances.
+- **Stop semantics**: "Stop" only affects processes the launcher spawned itself (safe by design). If the Web UI is online but was started another way (another instance, npx, or manually), click "Adopt" first to take control and then stop it (with a claims record it takes over that instance; without one it tracks the port-owning process). If you do not want to adopt, use "Force kill port owner".
 - **Shutdown behavior**: clicking "Shut down launcher" (or Ctrl+C) stops the dsh web it spawned and releases claims; adopted processes keep running. Closing the terminal window directly ends the child processes with it — stop the service first.
 
 ## Security Notes
@@ -123,6 +123,16 @@ npx -y @deepseek-ai/dsh@latest web
 ```
 
 **dsh not installed?** When the launcher detects no local dsh it shows an "Install dsh" button — one click runs `npm i -g @deepseek-ai/dsh@latest` with live output in the log panel, then re-detects automatically. You can also just click "Start" directly: the launcher will pull dsh on demand via npx, no prior install needed.
+
+**Want to uninstall dsh?** The launcher deliberately has no uninstall button (uninstalling would break the tool's own dependency). Do it manually:
+
+```bash
+# Remove the global install
+npm uninstall -g @deepseek-ai/dsh
+```
+
+- After removing the global install, the launcher automatically falls back to the npx cache (if any) or on-demand npx pull — no extra configuration needed.
+- **npx cache leftovers (optional cleanup):** ⚠ each `_npx\<hash>\node_modules` may also cache other packages; deleting a whole hash directory can break other tools. Keep them, or clear the npm cache entirely (`npm cache clean --force`) only when you are sure; the next "Start" re-downloads automatically.
 
 ## Tests
 
