@@ -22,8 +22,8 @@
 
 - 🚀 **一键启停**：以子进程拉起 `dsh web`（`--profile web --port <port> --host <host>`），停止时整树终止；启动成功自动打开浏览器
 - 🟢 **实时状态**：Web UI 在线/离线/启动中/停止中四种状态信标，PID、端口、DSH 版本、DSH_HOME、profiles 一目了然
-- 📡 **日志**：SSE 流式推送 stdout/stderr，终端风格渲染，支持 ANSI 颜色、自动滚动、清空
-- ⚡ **快捷任务**：输入任务 → `dsh --profile headless "<task>"` 运行一次性持久化会话，实时输出 + 退出码，可随时取消
+- 📡 **日志**：SSE 流式推送 stdout/stderr，终端风格渲染，支持 ANSI 颜色、自动滚动、清空；**落盘 `launcher.log`（自动轮转）、关键字过滤、一键导出**
+- ⚡ **快捷任务**：输入任务 → `dsh --profile headless "<task>"` 运行一次性持久化会话，实时输出 + 退出码，可随时取消；**常用任务可存为模板、历史记录一键重跑**
 - ☰ **会话浏览**：列出 `$DSH_HOME/sessions` 下的工作区会话，一键在资源管理器中打开
 - ⛔ **强制停止**：「停止服务」只作用于启动器自己拉起的进程；「强制停止端口进程」可查找并终止占用端口的任意进程（带二次确认）
 - 🔁 **多实例接管**：多个启动器实例通过共享登记表（`$DSH_HOME/dsh-launcher/claims.json`）识别「这个 Web UI 是谁启动的」，另一实例可一键「接管控制」后正常停止，不再只能看着
@@ -53,13 +53,7 @@ npm start          # 等价于 node launcher.js
 
 双击 `start-launcher.bat` 即可，关闭窗口即退出后端。
 
-想带鲸鱼图标启动？双击 `create-desktop-shortcut.bat`，在桌面创建一个指向启动器的快捷方式（图标来自 `public/favicon.ico`）。
-
-### 方式三：npx 临时运行（可选）
-
-```bash
-npx dsh-launcher
-```
+双击 `create-desktop-shortcut.bat`，在桌面创建一个指向启动器的快捷方式（图标来自 `public/favicon.ico`）。
 
 ## 界面说明
 
@@ -70,7 +64,7 @@ npx dsh-launcher
 | **日志** | 主输出流，含 dsh web 与 headless 任务的全部 stdout/stderr |
 | **快捷任务** | 运行/取消 headless 任务，独立输出面板 |
 | **会话** | 工作区会话列表（名称 / 路径 / 最近活动 / 会话数），可打开所在文件夹 |
-| **设置** | Web UI 端口与主机、工作区、dsh CLI 入口、DSH_HOME 覆盖、自动打开浏览器；「已发现的 dsh 安装」列表展示电脑上全部 dsh（全局 / npx 缓存）并标注当前使用的 |
+| **设置** | Web UI 端口与主机、工作区、dsh CLI 入口、DSH_HOME 覆盖、自动打开浏览器；「已发现的 dsh 安装」列表展示电脑上全部 dsh（全局 / npx 缓存）、标注当前使用，可点「使用」切换版本 |
 | **主题** | 顶栏切换：深海（默认深色）/ 新粗野主义 / Claude 风格，选择保存在本地浏览器 |
 
 ## 配置

@@ -23,8 +23,8 @@ English · [中文](README.md)
 
 - 🚀 **One-click start/stop**: spawns `dsh web` as a child process (`--profile web --port <port> --host <host>`), kills the whole process tree on stop; auto-opens the browser once ready
 - 🟢 **Live status**: online / offline / booting / stopping beacon, plus PID, port, DSH version, DSH_HOME and profiles at a glance
-- 📡 **Logs**: SSE streaming of stdout/stderr, terminal-style rendering with ANSI colors, auto-scroll and clear
-- ⚡ **Quick tasks**: run one-shot persistent sessions via `dsh --profile headless "<task>"`, with live output, exit code, and cancellation
+- 📡 **Logs**: SSE streaming of stdout/stderr, terminal-style rendering with ANSI colors, auto-scroll and clear; persisted to `launcher.log` (auto-rotated) with keyword filter and one-click export
+- ⚡ **Quick tasks**: run one-shot persistent sessions via `dsh --profile headless "<task>"`, with live output, exit code, cancellation; save recurring tasks as templates and re-run from history
 - ☰ **Session browser**: lists workspaces under `$DSH_HOME/sessions`, opens any folder in your file explorer
 - ⛔ **Force stop**: "Stop" only affects processes the launcher spawned itself; "Force kill port owner" finds and terminates whatever holds the Web UI port (with confirmation)
 - 🧩 **Auto-detects the dsh CLI**: global npm install → npx cache → `npx -y @deepseek-ai/dsh` fallback; fully overridable
@@ -59,7 +59,7 @@ The console opens automatically at <http://127.0.0.1:3090>. On Windows you can a
 | **Logs** | Main output stream: all stdout/stderr of dsh web and headless tasks |
 | **Quick Tasks** | Run/cancel headless tasks in a dedicated output panel |
 | **Sessions** | Workspace session list (name / path / last activity / count), open the folder in your file explorer |
-| **Settings** | Web UI port & host, workspace, dsh CLI entry, DSH_HOME override, auto-open browser; the "Found dsh installs" list shows every dsh on the machine (global / npx cache) with the active one marked |
+| **Settings** | Web UI port & host, workspace, dsh CLI entry, DSH_HOME override, auto-open browser; the "Found dsh installs" list shows every dsh on the machine (global / npx cache) with the active one marked, and a "Use" button to switch versions |
 | **Themes** | Switch in the top bar: Deep Sea (default dark) / Neo-Brutalism / Claude; your choice is saved in the browser |
 
 ## Configuration
