@@ -35,6 +35,7 @@ const els = {
   updateRow: $("#updateRow"),
   updateText: $("#updateText"),
   btnCheckUpdate: $("#btnCheckUpdate"),
+  btnInstallDsh: $("#btnInstallDsh"),
   tabbar: $("#tabbar"),
   tabs: $$(".tab"),
   tabUnderline: $("#tabUnderline"),
@@ -166,7 +167,14 @@ function renderState(s) {
   // DSH 更新状态行
   els.updateRow.hidden = false;
   const srcLabel = { config: "自定义", "npx-cache": "npx 缓存", "global-npm": "全局安装", none: "未安装" }[s.dsh.source] || s.dsh.source;
-  if (typeof s.dsh.installed !== "boolean") {
+  // 安装按钮：仅在明确未安装时显示
+  els.btnInstallDsh.hidden = !(s.dsh.installed === false);
+  els.btnInstallDsh.disabled = !!s.dsh.installing;
+  els.btnCheckUpdate.disabled = !!s.dsh.installing;
+  if (s.dsh.installing) {
+    els.updateText.textContent = "正在安装 dsh……（实时输出见日志面板）";
+    els.updateText.className = "update-text warn";
+  } else if (typeof s.dsh.installed !== "boolean") {
     // 后端进程早于前端代码（文件已更新但启动器未重启）
     els.updateText.textContent = "检测信息缺失：启动器后端进程较旧，请重启启动器后生效";
     els.updateText.className = "update-text warn";
@@ -182,7 +190,7 @@ function renderState(s) {
       els.updateText.className = "update-text";
     }
   } else {
-    els.updateText.textContent = `未检测到本机安装（最新 v${s.dsh.latest || "未知"}）· 启动时将用 npx 按需拉取`;
+    els.updateText.textContent = `未检测到本机安装（最新 v${s.dsh.latest || "未知"}）· 可点「安装 dsh」一键全局安装，或直接启动（npx 按需拉取）`;
     els.updateText.className = "update-text warn";
   }
 
@@ -523,6 +531,23 @@ async function doCheckUpdate() {
   }
 }
 
+/* ---------- 一键安装 dsh ---------- */
+
+async function doInstallDsh() {
+  if (!state || state.dsh.installed !== false) return;
+  const msg =
+    "将通过 npm 全局安装 @deepseek-ai/dsh（npm i -g @deepseek-ai/dsh@latest）。\n" +
+    "需要网络；安装过程输出会实时显示在日志面板。\n\n继续？";
+  if (!confirm(msg)) return;
+  try {
+    const data = await post("/api/install-dsh", {});
+    if (data.code === "busy") { toast(data.message, "warn"); return; }
+    toast("开始安装 dsh……", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
+
 /* ---------- Toast ---------- */
 
 function toast(msg, kind = "") {
@@ -595,6 +620,7 @@ els.btnRefreshSessions.addEventListener("click", async () => {
 });
 els.btnSaveConfig.addEventListener("click", saveConfig);
 els.btnCheckUpdate.addEventListener("click", doCheckUpdate);
+els.btnInstallDsh.addEventListener("click", doInstallDsh);
 els.infoWorkspace.addEventListener("click", () => explore(els.infoWorkspace.textContent));
 els.metaHome.addEventListener("click", () => explore(els.metaHome.textContent));
 

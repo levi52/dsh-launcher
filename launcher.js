@@ -166,6 +166,57 @@ async function checkDshUpdate(force = false) {
   return version;
 }
 
+/* ------------------------------------------------------------------ */
+/* 一键安装 dsh（全局 npm 安装）                                       */
+/* ------------------------------------------------------------------ */
+
+let installingDsh = false;
+
+/** 通过 npm 全局安装 @deepseek-ai/dsh；输出实时进入日志面板 */
+function installDsh() {
+  if (installingDsh) return { ok: false, code: "busy", message: "安装正在进行中" };
+  if (isChildRunning()) return { ok: false, code: "busy", message: "请先停止正在运行的 dsh web 再安装" };
+  installingDsh = true;
+  pushLog("sys", "[安装] 开始全局安装 @deepseek-ai/dsh（npm i -g @deepseek-ai/dsh@latest）...");
+  pushLog("sys", "[安装] 需要网络；安装完成后将自动重新识别");
+  const cmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  let proc;
+  try {
+    proc = spawn(cmd, ["i", "-g", "@deepseek-ai/dsh@latest"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      shell: process.platform === "win32",
+    });
+  } catch (err) {
+    installingDsh = false;
+    pushLog("sys", `[错误] 无法执行 npm：${err.message}`);
+    broadcastState();
+    return { ok: false, code: "spawn-failed", message: err.message };
+  }
+  proc.stdout.on("data", (d) => pushLog("out", d.toString()));
+  proc.stderr.on("data", (d) => pushLog("err", d.toString()));
+  proc.on("error", (err) => {
+    installingDsh = false;
+    pushLog("sys", `[错误] npm 执行失败：${err.message}`);
+    broadcastState();
+  });
+  proc.on("exit", (code) => {
+    installingDsh = false;
+    if (code === 0) {
+      const resolved = resolveDsh();
+      dshBin = resolved.bin;
+      dshSource = resolved.source;
+      pushLog("sys", `[安装] 完成！dsh 已就绪：${dshBin}`);
+      checkDshUpdate(true).then(() => broadcastState()).catch(() => broadcastState());
+    } else {
+      pushLog("sys", `[安装] 失败，退出码 ${code}（请检查网络与 npm 配置后重试）`);
+      broadcastState();
+    }
+  });
+  broadcastState();
+  return { ok: true };
+}
+
 /** 把可能含参数的命令串拆成 [cmd, ...args]（仅处理简单引号场景） */
 function splitCommand(cmd) {
   const m = cmd.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
@@ -268,6 +319,9 @@ function startDshWeb(port) {
   });
   child = { proc, pid: proc.pid, port, startedAt: new Date().toISOString(), profile: "web", adopted: false };
   claimPort(port, proc.pid, config.workspace);
+  if (dshSource === "none") {
+    pushLog("sys", "[提示] 未检测到本机安装的 dsh，将通过 npx 按需拉取（首次需要联网下载，可能较慢）");
+  }
   pushLog("sys", `[启动] dsh web  · pid=${proc.pid} · port=${port} · host=${config.guiHost} · cwd=${config.workspace}`);
   pushLog("sys", `[启动] 命令: node ${dshBin} --profile web --port ${port} --host ${config.guiHost}`);
   broadcastState();
@@ -619,6 +673,7 @@ async function snapshot() {
       bin: dshBin,
       source: dshSource,
       installed: /\.js$/i.test(dshBin) && path.isAbsolute(dshBin),
+      installing: installingDsh,
       version: readDshVersion(dshBin),
       latest: dshLatestCache?.version ?? null,
       latestCheckedAt: dshLatestCache?.checkedAt ?? null,
@@ -918,6 +973,11 @@ const server = http.createServer(async (req, res) => {
       }
       broadcastState();
       return sendJson(res, 200, { ok: true, latest: version, installed: installed, installedVersion, updateAvailable });
+    }
+
+    /* ---------- 一键安装 dsh ---------- */
+    if (p === "/api/install-dsh" && req.method === "POST") {
+      return sendJson(res, 200, installDsh());
     }
 
     /* ---------- 关闭启动器后端 ---------- */
