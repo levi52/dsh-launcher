@@ -735,6 +735,48 @@ body {
 
 .switch-field { justify-content: center; }
 
+/* dsh 安装列表 */
+.dsh-installs { margin-top: 16px; }
+.dsh-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 260px; overflow-y: auto;
+  padding-right: 4px;
+}
+.dsh-item {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(6, 16, 29, 0.6);
+  padding: 10px 12px;
+  animation: line-in 0.25s ease both;
+}
+.dsh-item.in-use { border-color: var(--line-strong); background: rgba(14, 116, 144, 0.10); }
+.dsh-ver {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--cyan-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 3px 8px;
+  flex: none;
+}
+.dsh-main { flex: 1; min-width: 0; }
+.dsh-src { font-size: 12px; font-weight: 600; color: var(--ink); }
+.dsh-badge {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+  color: var(--ok);
+  border: 1px solid rgba(61, 220, 151, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+.dsh-path {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ink-faint);
+  margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dsh-empty { color: var(--ink-faint); text-align: center; padding: 18px 0; font-size: 12px; }
+
 .settings-foot {
   display: flex; align-items: center; gap: 14px;
   margin-top: 16px;

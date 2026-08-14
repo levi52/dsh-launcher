@@ -36,6 +36,8 @@ const els = {
   updateText: $("#updateText"),
   btnCheckUpdate: $("#btnCheckUpdate"),
   btnInstallDsh: $("#btnInstallDsh"),
+  dshList: $("#dshList"),
+  btnScanDsh: $("#btnScanDsh"),
   tabbar: $("#tabbar"),
   tabs: $$(".tab"),
   tabUnderline: $("#tabUnderline"),
@@ -128,7 +130,9 @@ function renderState(s) {
   els.heroSub.textContent = guiOnline
     ? (s.managedBy && !childRunning
         ? `由启动器 PID ${s.managedBy.launcherPid} 管理 · dsh pid ${s.managedBy.dshPid} · 可接管`
-        : `已在 ${s.gui.url} 响应 · HTTP ${s.gui.status}`)
+        : !childRunning
+          ? `外部启动（如 npx）· 可「接管控制」或「强制停止」`
+          : `已在 ${s.gui.url} 响应 · HTTP ${s.gui.status}`)
     : starting
       ? `等待 ${s.gui.url} 就绪…`
       : stopping
@@ -138,8 +142,8 @@ function renderState(s) {
   // GUI 地址
   els.guiUrl.textContent = s.gui.url;
 
-  // 接管按钮：GUI 在线、本实例未管理、且有其他实例的登记时显示
-  const adoptable = guiOnline && !childRunning && !!s.managedBy;
+  // 接管按钮：GUI 在线、本实例未管理时显示（有登记=接管实例；无登记=按端口接管外部进程）
+  const adoptable = guiOnline && !childRunning;
   els.btnAdopt.hidden = !adoptable;
 
   // 按钮
@@ -193,6 +197,9 @@ function renderState(s) {
     els.updateText.textContent = `未检测到本机安装（最新 v${s.dsh.latest || "未知"}）· 可点「安装 dsh」一键全局安装，或直接启动（npx 按需拉取）`;
     els.updateText.className = "update-text warn";
   }
+
+  // dsh 安装列表
+  renderDshList(s.dsh.installs);
 
   // 快捷任务状态（仅在任务视图可见时更新文字）
   if (s.headless.running) {
@@ -328,6 +335,47 @@ function renderSessions(sessions) {
   });
 }
 
+/* ---------- dsh 安装列表 ---------- */
+
+const DSH_SRC_LABEL = { config: "自定义", "global-npm": "全局安装", "npx-cache": "npx 缓存", none: "未安装" };
+
+function renderDshList(installs) {
+  if (!installs || !installs.length) {
+    els.dshList.innerHTML = `<div class="dsh-empty">未发现任何 dsh 安装（启动时将用 npx 按需拉取）</div>`;
+    return;
+  }
+  els.dshList.innerHTML = "";
+  installs.forEach((it, i) => {
+    const item = document.createElement("div");
+    item.className = "dsh-item" + (it.inUse ? " in-use" : "");
+    item.style.animationDelay = `${Math.min(i * 0.04, 0.3)}s`;
+    const src = DSH_SRC_LABEL[it.source] || it.source || "未知";
+    item.innerHTML = `
+      <div class="dsh-ver">v${it.version || "?"}</div>
+      <div class="dsh-main">
+        <div class="dsh-src">${src}${it.inUse ? ' <span class="dsh-badge">使用中</span>' : ""}</div>
+        <div class="dsh-path" title="${esc(it.bin)}">${esc(it.bin)}</div>
+      </div>
+    `;
+    els.dshList.appendChild(item);
+  });
+}
+
+/* ---------- 重新扫描 dsh ---------- */
+
+async function doScanDsh() {
+  els.btnScanDsh.disabled = true;
+  try {
+    const data = await post("/api/scan-dsh", {});
+    const count = (data.installs || []).length;
+    toast(`扫描完成：发现 ${count} 个 dsh 安装`, "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  } finally {
+    els.btnScanDsh.disabled = false;
+  }
+}
+
 /* ---------- 设置 ---------- */
 
 function fillSettings() {
@@ -430,6 +478,14 @@ async function doForceStop() {
 
 async function doAdopt() {
   if (!state || !state.gui.online) return;
+  if (!state.managedBy) {
+    // 无登记（npx / 手动启动）：接管前明确说明后果
+    const msg =
+      "该 GUI 不是由启动器实例启动的（可能是 npx 或手动启动）。\n" +
+      "接管后将按端口查找并跟踪其进程，之后可用「停止服务」一键控制。\n\n" +
+      "⚠ 如果该进程是正在使用的 Harness 会话，停止它会断开会话。\n\n继续？";
+    if (!confirm(msg)) return;
+  }
   try {
     const data = await post("/api/adopt", {});
     toast(`已接管进程 ${data.pid}，现在可以停止或继续管理`, "ok");
@@ -621,6 +677,7 @@ els.btnRefreshSessions.addEventListener("click", async () => {
 els.btnSaveConfig.addEventListener("click", saveConfig);
 els.btnCheckUpdate.addEventListener("click", doCheckUpdate);
 els.btnInstallDsh.addEventListener("click", doInstallDsh);
+els.btnScanDsh.addEventListener("click", doScanDsh);
 els.infoWorkspace.addEventListener("click", () => explore(els.infoWorkspace.textContent));
 els.metaHome.addEventListener("click", () => explore(els.metaHome.textContent));
 

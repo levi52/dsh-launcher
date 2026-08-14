@@ -70,20 +70,20 @@ function npxCacheDirs() {
   }
 }
 
-/** 解析 dsh CLI 入口：返回 bin 与来源（config / npx-cache / global-npm / none） */
+/** 解析 dsh CLI 入口：返回 bin 与来源（config / global-npm / npx-cache / none） */
 function resolveDsh() {
   if (config.dshCommand && config.dshCommand.trim()) {
     return { bin: config.dshCommand.trim(), source: "config" };
   }
   const candidates = [];
-  // 1) npx 缓存中的 @deepseek-ai/dsh
-  for (const dir of npxCacheDirs()) {
-    candidates.push({ bin: path.join(dir, "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "npx-cache" });
-  }
-  // 2) 全局 npm 安装
+  // 1) 全局 npm 安装（用户主动安装的版本优先，与终端 dsh 命令保持一致）
   const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
   candidates.push({ bin: path.join(appData, "npm", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "global-npm" });
   candidates.push({ bin: path.join(os.homedir(), ".npm-global", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "global-npm" });
+  // 2) npx 缓存中的 @deepseek-ai/dsh（按需拉取的副本）
+  for (const dir of npxCacheDirs()) {
+    candidates.push({ bin: path.join(dir, "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "npx-cache" });
+  }
   for (const c of candidates) {
     if (fs.existsSync(c.bin)) return c;
   }
@@ -94,6 +94,34 @@ function resolveDsh() {
 const dshResolved = resolveDsh();
 let dshBin = dshResolved.bin;
 let dshSource = dshResolved.source;
+
+/** 枚举电脑上发现的所有 dsh 安装（全局 / npx 缓存 / 自定义指定），标注当前使用的 */
+function findAllDshInstalls() {
+  const found = [];
+  const seen = new Set();
+  const add = (bin, source) => {
+    if (!bin || seen.has(bin)) return;
+    if (!fs.existsSync(bin)) return;   // 只列真实存在的安装
+    seen.add(bin);
+    found.push({
+      bin,
+      source,
+      version: readDshVersion(bin),
+      inUse: bin === dshBin,
+    });
+  };
+  // 1) 用户配置指定的入口
+  if (config.dshCommand && config.dshCommand.trim()) add(config.dshCommand.trim(), "config");
+  // 2) 全局 npm 安装
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  add(path.join(appData, "npm", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), "global-npm");
+  add(path.join(os.homedir(), ".npm-global", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), "global-npm");
+  // 3) npx 缓存（每个 _npx 目录可能对应不同版本）
+  for (const dir of npxCacheDirs()) {
+    add(path.join(dir, "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), "npx-cache");
+  }
+  return found;
+}
 
 function readDshVersion(bin) {
   try {
@@ -674,6 +702,7 @@ async function snapshot() {
       source: dshSource,
       installed: /\.js$/i.test(dshBin) && path.isAbsolute(dshBin),
       installing: installingDsh,
+      installs: findAllDshInstalls(),
       version: readDshVersion(dshBin),
       latest: dshLatestCache?.version ?? null,
       latestCheckedAt: dshLatestCache?.checkedAt ?? null,
@@ -860,24 +889,38 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 409, { ok: false, code: "already-running", message: "本启动器已管理该进程" });
       }
       const claims = readClaims();
-      const claim = claims[String(port)];
+      let claim = claims[String(port)];
+      let prevOwner = null;
       if (!claim) {
-        return sendJson(res, 404, {
-          ok: false, code: "no-claim",
-          message: "该端口没有启动器登记记录（可能是 Harness 运行时等外部进程，请使用「强制停止」）",
-        });
+        // 无登记（npx / 手动启动的实例）：按端口查找监听进程后接管
+        const pids = await findPidsByPort(port);
+        if (!pids.length) {
+          return sendJson(res, 404, {
+            ok: false, code: "no-listener",
+            message: `端口 ${port} 上没有发现监听进程，无法接管`,
+          });
+        }
+        claim = {
+          launcherPid: process.pid,
+          dshPid: pids[0],
+          startedAt: new Date().toISOString(),
+          workspace: config.workspace,
+          launcherVersion: LAUNCHER_VERSION,
+        };
+        claims[String(port)] = claim;
+      } else {
+        prevOwner = claim.launcherPid;
+        if (!(await isProcessAlive(claim.dshPid))) {
+          delete claims[String(port)];
+          writeClaims(claims);
+          return sendJson(res, 404, { ok: false, code: "stale", message: "登记的进程已不存在，记录已清理" });
+        }
+        claim.launcherPid = process.pid;
+        claim.startedAt = new Date().toISOString();
       }
-      if (!(await isProcessAlive(claim.dshPid))) {
-        delete claims[String(port)];
-        writeClaims(claims);
-        return sendJson(res, 404, { ok: false, code: "stale", message: "登记的进程已不存在，记录已清理" });
-      }
-      const prevOwner = claim.launcherPid;
-      claim.launcherPid = process.pid;
-      claim.startedAt = new Date().toISOString();
       writeClaims(claims);
       child = { proc: null, pid: claim.dshPid, port, startedAt: claim.startedAt, profile: "web", adopted: true };
-      pushLog("sys", `[接管] 已接管端口 ${port} 的 dsh web（pid=${claim.dshPid}，原属启动器 ${prevOwner}）`);
+      pushLog("sys", `[接管] 已接管端口 ${port} 的进程（pid=${claim.dshPid}${prevOwner ? `，原属启动器 ${prevOwner}` : "，无登记记录，按端口接管"}）`);
       broadcastState();
       return sendJson(res, 200, { ok: true, pid: claim.dshPid });
     }
@@ -978,6 +1021,15 @@ const server = http.createServer(async (req, res) => {
     /* ---------- 一键安装 dsh ---------- */
     if (p === "/api/install-dsh" && req.method === "POST") {
       return sendJson(res, 200, installDsh());
+    }
+
+    /* ---------- 重新扫描 dsh 安装 ---------- */
+    if (p === "/api/scan-dsh" && req.method === "POST") {
+      const resolved = resolveDsh();
+      dshBin = resolved.bin;
+      dshSource = resolved.source;
+      broadcastState();
+      return sendJson(res, 200, { ok: true, bin: dshBin, source: dshSource, installs: findAllDshInstalls() });
     }
 
     /* ---------- 关闭启动器后端 ---------- */
