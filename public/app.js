@@ -32,6 +32,9 @@ const els = {
   metaNode: $("#metaNode"),
   metaHome: $("#metaHome"),
   metaProfiles: $("#metaProfiles"),
+  updateRow: $("#updateRow"),
+  updateText: $("#updateText"),
+  btnCheckUpdate: $("#btnCheckUpdate"),
   tabbar: $("#tabbar"),
   tabs: $$(".tab"),
   tabUnderline: $("#tabUnderline"),
@@ -144,11 +147,32 @@ function renderState(s) {
   els.infoSince.textContent = childRunning ? fmtClock(s.child.startedAt) : "—";
 
   // 元信息
-  els.metaDshVersion.textContent = s.dsh.version || "未知";
+  els.metaDshVersion.textContent = s.dsh.version || "未检测到";
+  els.metaDshVersion.title = s.dsh.bin || "";
+  els.metaDshVersion.classList.toggle("has-update", !!s.dsh.updateAvailable);
   els.metaNode.textContent = s.dsh.nodeVersion || "—";
   els.metaHome.textContent = s.dsh.home;
   els.metaHome.title = s.dsh.home;
   els.metaProfiles.textContent = s.dsh.profiles.length ? s.dsh.profiles.join(" · ") : "—";
+
+  // DSH 更新状态行
+  els.updateRow.hidden = false;
+  const srcLabel = { config: "自定义", "npx-cache": "npx 缓存", "global-npm": "全局安装", none: "未安装" }[s.dsh.source] || s.dsh.source;
+  if (s.dsh.installed) {
+    if (s.dsh.updateAvailable) {
+      els.updateText.textContent = `发现新版本 v${s.dsh.latest}（当前 ${s.dsh.version} · ${srcLabel}）`;
+      els.updateText.className = "update-text warn";
+    } else if (s.dsh.latest) {
+      els.updateText.textContent = `已是最新 v${s.dsh.version}（${srcLabel}）`;
+      els.updateText.className = "update-text ok";
+    } else {
+      els.updateText.textContent = `更新检查不可用（离线？）· 当前 ${s.dsh.version}（${srcLabel}）`;
+      els.updateText.className = "update-text";
+    }
+  } else {
+    els.updateText.textContent = `未检测到本机安装（最新 v${s.dsh.latest || "未知"}）· 启动时将用 npx 按需拉取`;
+    els.updateText.className = "update-text warn";
+  }
 
   // 快捷任务状态（仅在任务视图可见时更新文字）
   if (s.headless.running) {
@@ -470,6 +494,23 @@ async function doShutdown() {
   showShutdownOverlay();
 }
 
+/* ---------- 检查 dsh 更新 ---------- */
+
+async function doCheckUpdate() {
+  els.btnCheckUpdate.disabled = true;
+  els.updateText.textContent = "检查中……";
+  try {
+    const data = await post("/api/check-update", {});
+    if (data.updateAvailable) toast(`发现新版本 v${data.latest}`, "ok");
+    else if (data.latest) toast(`已是最新 v${data.installedVersion}`, "ok");
+    else toast("更新检查失败（可能离线）", "warn");
+  } catch (err) {
+    toast(err.message, "err");
+  } finally {
+    els.btnCheckUpdate.disabled = false;
+  }
+}
+
 /* ---------- Toast ---------- */
 
 function toast(msg, kind = "") {
@@ -541,6 +582,7 @@ els.btnRefreshSessions.addEventListener("click", async () => {
   toast("会话列表已刷新", "ok");
 });
 els.btnSaveConfig.addEventListener("click", saveConfig);
+els.btnCheckUpdate.addEventListener("click", doCheckUpdate);
 els.infoWorkspace.addEventListener("click", () => explore(els.infoWorkspace.textContent));
 els.metaHome.addEventListener("click", () => explore(els.metaHome.textContent));
 

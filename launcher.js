@@ -70,25 +70,30 @@ function npxCacheDirs() {
   }
 }
 
-function detectDshBin() {
+/** 解析 dsh CLI 入口：返回 bin 与来源（config / npx-cache / global-npm / none） */
+function resolveDsh() {
   if (config.dshCommand && config.dshCommand.trim()) {
-    return config.dshCommand.trim();
+    return { bin: config.dshCommand.trim(), source: "config" };
   }
   const candidates = [];
   // 1) npx 缓存中的 @deepseek-ai/dsh
   for (const dir of npxCacheDirs()) {
-    candidates.push(path.join(dir, "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"));
+    candidates.push({ bin: path.join(dir, "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "npx-cache" });
   }
   // 2) 全局 npm 安装
   const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
-  candidates.push(path.join(appData, "npm", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"));
-  candidates.push(path.join(os.homedir(), ".npm-global", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"));
+  candidates.push({ bin: path.join(appData, "npm", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "global-npm" });
+  candidates.push({ bin: path.join(os.homedir(), ".npm-global", "node_modules", "@deepseek-ai", "dsh", "lib", "bin.js"), source: "global-npm" });
   for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
+    if (fs.existsSync(c.bin)) return c;
   }
   // 3) 兜底：通过 npx 临时拉取（需要网络）
-  return "npx -y @deepseek-ai/dsh";
+  return { bin: "npx -y @deepseek-ai/dsh", source: "none" };
 }
+
+const dshResolved = resolveDsh();
+let dshBin = dshResolved.bin;
+let dshSource = dshResolved.source;
 
 function readDshVersion(bin) {
   try {
@@ -100,7 +105,66 @@ function readDshVersion(bin) {
   }
 }
 
-let dshBin = detectDshBin();
+/* ------------------------------------------------------------------ */
+/* dsh 更新检查（npm registry）                                        */
+/* ------------------------------------------------------------------ */
+
+const UPDATE_TTL_MS = 60 * 60 * 1000;   // 自动检查结果缓存 1 小时
+const NPM_REGISTRY = process.env.DSH_NPM_REGISTRY || "https://registry.npmjs.org";
+let dshLatestCache = null;              // { version, checkedAt }
+
+/** 极简 semver 解析：major.minor.patch[-pre] */
+function parseVersion(v) {
+  const m = String(v).trim().match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  if (!m) return null;
+  return { major: +m[1], minor: +m[2], patch: +m[3], pre: m[4] ? m[4].split(".") : null };
+}
+
+/** semver 比较：a<b → -1，相等 → 0，a>b → 1 */
+function compareVersions(a, b) {
+  for (const key of ["major", "minor", "patch"]) {
+    if (a[key] !== b[key]) return a[key] < b[key] ? -1 : 1;
+  }
+  if (!a.pre && !b.pre) return 0;
+  if (!a.pre) return 1;   // 正式版 > 预发布版
+  if (!b.pre) return -1;
+  const len = Math.max(a.pre.length, b.pre.length);
+  for (let i = 0; i < len; i++) {
+    const x = a.pre[i];
+    const y = b.pre[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    if (x === y) continue;
+    const xn = /^\d+$/.test(x);
+    const yn = /^\d+$/.test(y);
+    if (xn && yn) return +x < +y ? -1 : 1;
+    if (xn) return -1;   // 数字段 < 字母段
+    if (yn) return 1;
+    return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
+async function fetchDshLatest() {
+  try {
+    const r = await fetch(`${NPM_REGISTRY}/@deepseek-ai/dsh/latest`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return String(data.version || "") || null;
+  } catch {
+    return null;   // 离线或 registry 不可达：保持未知
+  }
+}
+
+/** 查询最新版本（带 TTL 缓存）；force=true 强制刷新 */
+async function checkDshUpdate(force = false) {
+  if (!force && dshLatestCache && Date.now() - dshLatestCache.checkedAt < UPDATE_TTL_MS) {
+    return dshLatestCache.version;
+  }
+  const version = await fetchDshLatest();
+  dshLatestCache = { version, checkedAt: Date.now() };
+  return version;
+}
 
 /** 把可能含参数的命令串拆成 [cmd, ...args]（仅处理简单引号场景） */
 function splitCommand(cmd) {
@@ -553,7 +617,17 @@ async function snapshot() {
       : { running: false, task: null, startedAt: null, exitCode: null },
     dsh: {
       bin: dshBin,
+      source: dshSource,
+      installed: /\.js$/i.test(dshBin) && path.isAbsolute(dshBin),
       version: readDshVersion(dshBin),
+      latest: dshLatestCache?.version ?? null,
+      latestCheckedAt: dshLatestCache?.checkedAt ?? null,
+      updateAvailable: (() => {
+        if (!dshLatestCache?.version) return false;
+        const a = parseVersion(readDshVersion(dshBin));
+        const b = parseVersion(dshLatestCache.version);
+        return !!(a && b && compareVersions(a, b) < 0);
+      })(),
       home,
       nodeVersion: process.version,
       profiles: listDir(path.join(home, "profiles")),
@@ -821,12 +895,29 @@ const server = http.createServer(async (req, res) => {
       }
       if (patch.workspace === "") patch.workspace = __dirname;
       persistConfig(patch);
-      dshBin = detectDshBin();
+      const resolved = resolveDsh();
+      dshBin = resolved.bin;
+      dshSource = resolved.source;
       pushLog("sys", "[配置] 已保存，dsh CLI = " + dshBin);
       if (!fs.existsSync(config.workspace)) pushLog("sys", "[警告] 工作区目录不存在：" + config.workspace);
       if (config.dshHome && !fs.existsSync(config.dshHome)) pushLog("sys", "[警告] DSH_HOME 目录不存在：" + config.dshHome);
       broadcastState();
       return sendJson(res, 200, { ok: true, config: config });
+    }
+
+    /* ---------- 检查 dsh 更新 ---------- */
+    if (p === "/api/check-update" && req.method === "POST") {
+      const version = await checkDshUpdate(true);
+      const installed = dshBin && /\.js$/i.test(dshBin) && path.isAbsolute(dshBin);
+      const installedVersion = readDshVersion(dshBin);
+      let updateAvailable = false;
+      if (version && installedVersion) {
+        const a = parseVersion(installedVersion);
+        const b = parseVersion(version);
+        if (a && b) updateAvailable = compareVersions(a, b) < 0;
+      }
+      broadcastState();
+      return sendJson(res, 200, { ok: true, latest: version, installed: installed, installedVersion, updateAvailable });
     }
 
     /* ---------- 关闭启动器后端 ---------- */
@@ -885,6 +976,9 @@ const LAUNCHER_PORT = (await findFreePort(requestedPort)) ?? requestedPort;
 
 // 清理其他实例遗留的陈旧登记（避免 stale 记录误导接管）
 await cleanupStaleClaims();
+
+// 后台异步检查 dsh 最新版本（不阻塞启动；完成后广播状态供界面刷新）
+checkDshUpdate().then(() => broadcastState()).catch(() => { /* 离线时静默 */ });
 
 server.listen(LAUNCHER_PORT, "127.0.0.1", () => {
   setInterval(heartbeat, 25000).unref();

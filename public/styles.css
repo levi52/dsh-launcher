@@ -461,6 +461,20 @@ body {
 .meta-cell span { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; color: var(--ink-faint); }
 .meta-cell b { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta-cell b.infopath { cursor: help; }
+.meta-cell b.has-update { color: var(--warn); text-shadow: 0 0 10px rgba(255, 194, 77, 0.4); }
+
+/* DSH 更新状态行 */
+.update-row {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  padding: 7px 10px;
+  background: rgba(8, 20, 34, 0.35);
+}
+.update-row .lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; color: var(--ink-faint); flex: none; }
+.update-text { font-size: 11.5px; color: var(--ink-dim); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.update-text.ok { color: var(--ok); }
+.update-text.warn { color: var(--warn); }
 
 /* ============ 标签面板 ============ */
 

@@ -27,6 +27,7 @@
 - ⛔ **强制停止**：「停止服务」只作用于启动器自己拉起的进程；「强制停止端口进程」可查找并终止占用端口的任意进程（带二次确认）
 - 🔁 **多实例接管**：多个启动器实例通过共享登记表（`$DSH_HOME/dsh-launcher/claims.json`）识别「这个 Web UI 是谁启动的」，另一实例可一键「接管控制」后正常停止，不再只能看着
 - 🧩 **自动探测 dsh CLI**：依次查找 npx 缓存、全局 npm 安装，兜底 `npx -y @deepseek-ai/dsh`，也支持手动指定
+- 🔔 **安装与更新检查**：显示 dsh 是否已安装及其来源（npx 缓存 / 全局安装），自动比对 npm registry 最新版本（1 小时缓存），发现新版本时高亮提示，可一键手动复查
 - 🔒 **本地安全**：仅监听 `127.0.0.1`，不采集任何密钥，配置留在本机
 
 ## 快速开始
@@ -103,6 +104,7 @@ npx dsh-launcher
 | POST | `/api/explore` | 在资源管理器中打开路径（`{ path }`） |
 | POST | `/api/save-config` | 保存配置 |
 | POST | `/api/shutdown` | 关闭启动器后端（停止自己拉起的 dsh web、释放所有权登记后退出进程） |
+| POST | `/api/check-update` | 强制刷新 dsh 最新版本检查（返回 `{ latest, installed, installedVersion, updateAvailable }`） |
 
 ## 工作原理
 
@@ -116,6 +118,18 @@ npx dsh-launcher
 - 启动器只监听本机 `127.0.0.1`，不对外网开放。
 - 不读取、不传输任何凭据；配置仅保存在本地 `launcher-config.json`。
 - 「强制停止」会终止占用端口的任意进程（包括正在使用的 Harness 会话），界面上有明确二次确认。
+- 更新检查只向 npm registry 查询公开的版本号，不上传任何本机信息。
+
+## 更新 dsh 本身
+
+发现新版本后，按安装来源更新：
+
+```bash
+# 全局安装
+npm i -g @deepseek-ai/dsh@latest
+# npx 按需拉取（清除缓存强制最新）
+npx -y @deepseek-ai/dsh@latest web
+```
 
 ## 测试
 
