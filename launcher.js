@@ -258,6 +258,22 @@ function splitCommand(cmd) {
 const logRing = [];                 // { t, stream: "sys"|"out"|"err", text }
 const sseClients = new Set();
 
+/* 日志落盘（launcher.log，已 gitignore；超过 2MB 轮转为 .old） */
+const LOG_FILE = path.join(__dirname, "launcher.log");
+const LOG_FILE_MAX = 2 * 1024 * 1024;
+let logWriteCount = 0;
+function appendLogFile(entry, tag) {
+  try {
+    if (++logWriteCount % 500 === 0) {
+      const st = fs.statSync(LOG_FILE, { throwIfNoEntry: false });
+      if (st && st.size > LOG_FILE_MAX) {
+        fs.renameSync(LOG_FILE, LOG_FILE + ".old");
+      }
+    }
+    fs.appendFileSync(LOG_FILE, `[${fmtTime(entry.t)}] ${tag} ${entry.text}\n`, "utf8");
+  } catch { /* 磁盘异常时忽略，不影响运行 */ }
+}
+
 function fmtTime(ts) {
   const d = new Date(ts);
   return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, "0")).join(":");
@@ -271,6 +287,7 @@ function pushLog(stream, text) {
     if (logRing.length > 3000) logRing.shift();
     const tag = { sys: "SYS", out: "OUT", err: "ERR" }[stream] || "···";
     console.log(`[${fmtTime(entry.t)}] ${tag} ${line}`);   // 控制台实时回声
+    appendLogFile(entry, tag);                             // 落盘持久化
     broadcast("line", entry);
   }
 }
@@ -339,9 +356,15 @@ function startDshWeb(port) {
   stopping = false;
   const proc = spawnDsh(["--profile", "web", "--port", String(port), "--host", config.guiHost], (code) => {
     if (child && child.proc === proc) {
+      const wasStopping = stopping;
       releaseClaim(port);
       child = null;
       stopping = false;
+      // 非用户主动停止的异常退出 → 通知前端弹 toast
+      if (!wasStopping) {
+        broadcast("child-exited", { pid: proc.pid, code });
+        pushLog("sys", `[警告] dsh web 异常退出（code=${code}）`);
+      }
       broadcastState();
     }
   });
@@ -853,6 +876,22 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { lines: logRing.filter((l) => l.t > since) });
     }
 
+    /* ---------- 导出日志（完整持久化文件，回退到环形缓冲） ---------- */
+    if (p === "/api/logs/export" && req.method === "GET") {
+      let content;
+      try {
+        content = fs.readFileSync(LOG_FILE, "utf8");
+      } catch {
+        content = logRing.map((l) => `[${fmtTime(l.t)}] ${l.text}`).join("\n") + "\n";
+      }
+      res.writeHead(200, {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Disposition": `attachment; filename="dsh-launcher.log"`,
+        "Cache-Control": "no-store",
+      });
+      return res.end(content);
+    }
+
     /* ---------- 启动 dsh web ---------- */
     if (p === "/api/start" && req.method === "POST") {
       const body = await readBody(req);
@@ -1044,6 +1083,22 @@ const server = http.createServer(async (req, res) => {
       // 先让响应发送完成，再退出进程（taskkill 是独立进程，会继续执行）
       setTimeout(() => process.exit(0), 500);
       return sendJson(res, 200, { ok: true, message: "启动器已关闭" });
+    }
+
+    /* ---------- 指定使用某个 dsh 安装（版本选择器；bin 为空则恢复自动检测） ---------- */
+    if (p === "/api/use-dsh" && req.method === "POST") {
+      const body = await readBody(req);
+      const bin = String(body.bin || "").trim();
+      if (bin && !fs.existsSync(bin)) {
+        return sendJson(res, 400, { ok: false, code: "bad-bin", message: "路径不存在：" + bin });
+      }
+      persistConfig({ dshCommand: bin });
+      const resolved = resolveDsh();
+      dshBin = resolved.bin;
+      dshSource = resolved.source;
+      pushLog("sys", `[配置] 指定使用 dsh：${bin || "（自动检测）"} → ${dshBin}`);
+      broadcastState();
+      return sendJson(res, 200, { ok: true, bin: dshBin, source: dshSource });
     }
 
     /* ---------- 静态资源 ---------- */

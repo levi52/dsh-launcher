@@ -160,6 +160,8 @@
       <div class="log-bar">
         <span class="lbl">输出流 · STDOUT/STDERR</span>
         <div class="log-ctrl">
+          <input type="text" id="logFilter" class="log-filter" placeholder="过滤日志…" autocomplete="off" />
+          <button class="mini-btn" id="btnExportLog" title="导出完整日志文件">导出</button>
           <label class="switch"><input type="checkbox" id="chkAutoscroll" checked /><span class="track"></span><span class="sw-lbl">自动滚动</span></label>
           <button class="mini-btn" id="btnClearLog">清空</button>
         </div>
@@ -175,17 +177,23 @@
       <div class="task-intro">
         <p>在下方输入一个任务，启动器会以 <code>dsh --profile headless "…"</code> 拉起一次性持久化会话，实时输出执行过程。</p>
       </div>
+      <div class="task-templates" id="taskTemplates" hidden></div>
       <div class="task-box">
         <textarea id="taskInput" rows="3" placeholder="例如：统计当前目录下的文件数量，并生成一份 markdown 报告…"></textarea>
         <div class="task-actions">
           <button class="btn btn-primary btn-sm" id="btnRunTask"><span class="btn-glyph">⚡</span>运行任务 <i>RUN</i></button>
           <button class="btn btn-ghost btn-sm" id="btnCancelTask" disabled><span class="btn-glyph">■</span>取消任务 <i>CANCEL</i></button>
+          <button class="mini-btn" id="btnSaveTemplate" title="把当前输入保存为模板">存为模板</button>
           <span class="task-status" id="taskStatus">空闲 IDLE</span>
         </div>
       </div>
       <div class="task-output" id="taskOutput" hidden>
         <div class="log-bar"><span class="lbl">任务输出 · TASK OUTPUT</span><span class="exit-chip" id="taskExit">EXIT —</span></div>
         <div class="log log-sm" id="taskLog"></div>
+      </div>
+      <div class="task-history" id="taskHistory" hidden>
+        <div class="log-bar"><span class="lbl">历史任务 · HISTORY</span><button class="mini-btn" id="btnClearHistory">清空</button></div>
+        <div class="hist-list" id="histList"></div>
       </div>
     </div>
 

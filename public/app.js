@@ -43,11 +43,18 @@ const els = {
   tabUnderline: $("#tabUnderline"),
   log: $("#log"),
   logEmpty: $("#logEmpty"),
+  logFilter: $("#logFilter"),
+  btnExportLog: $("#btnExportLog"),
   chkAutoscroll: $("#chkAutoscroll"),
   btnClearLog: $("#btnClearLog"),
   taskInput: $("#taskInput"),
   btnRunTask: $("#btnRunTask"),
   btnCancelTask: $("#btnCancelTask"),
+  btnSaveTemplate: $("#btnSaveTemplate"),
+  taskTemplates: $("#taskTemplates"),
+  taskHistory: $("#taskHistory"),
+  histList: $("#histList"),
+  btnClearHistory: $("#btnClearHistory"),
   taskStatus: $("#taskStatus"),
   taskOutput: $("#taskOutput"),
   taskExit: $("#taskExit"),
@@ -265,6 +272,11 @@ function ansiToHtml(text) {
   return out;
 }
 
+/* 客户端日志缓冲区（支持过滤/导出/性能上限） */
+const logBuffer = [];
+const LOG_BUFFER_MAX = 3000;   // 与服务端环形缓冲一致
+const LOG_DOM_MAX = 1500;      // DOM 渲染上限，防止长日志卡顿
+
 function appendLogLine(line, target) {
   const streamLabel = { sys: "SYS", out: "OUT", err: "ERR" }[line.stream] || "·";
   const div = document.createElement("div");
@@ -279,13 +291,59 @@ function appendLogLine(line, target) {
   if (empty) empty.remove();
 }
 
+function logFilterTerm() {
+  return els.logFilter.value.trim().toLowerCase();
+}
+
 function appendLog(line) {
-  appendLogLine(line, els.log);
-  if (els.chkAutoscroll.checked) els.log.scrollTop = els.log.scrollHeight;
+  logBuffer.push(line);
+  if (logBuffer.length > LOG_BUFFER_MAX) logBuffer.shift();
+  const term = logFilterTerm();
+  if (term) {
+    renderLogFiltered(term);
+  } else {
+    appendLogLine(line, els.log);
+    while (els.log.childElementCount > LOG_DOM_MAX) els.log.removeChild(els.log.firstElementChild);
+    if (els.chkAutoscroll.checked) els.log.scrollTop = els.log.scrollHeight;
+  }
+}
+
+function renderLogFiltered(term) {
+  els.log.innerHTML = "";
+  const start = performance.now();
+  for (const l of logBuffer) {
+    if (l.text.toLowerCase().includes(term)) appendLogLine(l, els.log);
+  }
+  // 过滤结果超过渲染上限时截断最旧的
+  while (els.log.childElementCount > LOG_DOM_MAX) els.log.removeChild(els.log.firstElementChild);
+  els.log.scrollTop = els.log.scrollHeight;
+  if (performance.now() - start > 200) {
+    toast("日志过滤耗时较长，已截断显示", "warn");
+  }
 }
 
 function clearLog() {
+  logBuffer.length = 0;
   els.log.innerHTML = "";
+}
+
+async function exportLog() {
+  try {
+    const res = await fetch("/api/logs/export");
+    if (!res.ok) throw new Error(`导出失败 HTTP ${res.status}`);
+    const text = await res.text();
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `dsh-launcher-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.log`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    toast("日志已导出", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
 }
 
 /* ---------- 标签页 ---------- */
@@ -350,15 +408,30 @@ function renderDshList(installs) {
     item.className = "dsh-item" + (it.inUse ? " in-use" : "");
     item.style.animationDelay = `${Math.min(i * 0.04, 0.3)}s`;
     const src = DSH_SRC_LABEL[it.source] || it.source || "未知";
+    const useBtn = it.inUse
+      ? `<span class="dsh-badge">使用中</span>`
+      : `<button class="mini-btn dsh-use" data-use="${esc(it.bin)}">使用</button>`;
     item.innerHTML = `
       <div class="dsh-ver">v${it.version || "?"}</div>
       <div class="dsh-main">
-        <div class="dsh-src">${src}${it.inUse ? ' <span class="dsh-badge">使用中</span>' : ""}</div>
+        <div class="dsh-src">${src}</div>
         <div class="dsh-path" title="${esc(it.bin)}">${esc(it.bin)}</div>
       </div>
+      ${useBtn}
     `;
+    const useEl = item.querySelector("[data-use]");
+    if (useEl) useEl.addEventListener("click", () => useDsh(it.bin));
     els.dshList.appendChild(item);
   });
+}
+
+async function useDsh(bin) {
+  try {
+    const data = await post("/api/use-dsh", { bin });
+    toast(`已切换：${data.source === "config" ? "手动指定" : data.source} · ${data.bin}`, "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
 }
 
 /* ---------- 重新扫描 dsh ---------- */
@@ -517,6 +590,7 @@ async function runTask() {
   els.taskLog.innerHTML = "";
   els.taskExit.textContent = "EXIT —";
   els.taskExit.className = "exit-chip";
+  pushTaskHistory({ task, exitCode: null, t: Date.now() });
   try {
     await post("/api/headless", { task });
   } catch (err) {
@@ -524,6 +598,7 @@ async function runTask() {
     els.btnRunTask.disabled = false;
     els.taskStatus.textContent = "启动失败";
     els.taskStatus.className = "task-status fail";
+    markLastHistoryExit(null, "启动失败");
   }
 }
 
@@ -537,6 +612,95 @@ async function cancelTask() {
   } catch (err) {
     toast(err.message, "err");
   }
+}
+
+/* ---------- 任务模板与历史（localStorage） ---------- */
+
+const TPL_KEY = "dsh-task-templates";
+const HIST_KEY = "dsh-task-history";
+const HIST_MAX = 20;
+
+function loadJson(key, def) {
+  try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; }
+}
+function saveJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* 忽略 */ }
+}
+
+function taskTemplates() { return loadJson(TPL_KEY, []); }
+function taskHistory() { return loadJson(HIST_KEY, []); }
+
+function pushTaskHistory(entry) {
+  const list = taskHistory();
+  list.unshift(entry);
+  if (list.length > HIST_MAX) list.length = HIST_MAX;
+  saveJson(HIST_KEY, list);
+  renderTaskHistory();
+}
+
+function markLastHistoryExit(code, label) {
+  const list = taskHistory();
+  if (list.length && list[0].exitCode === null) {
+    list[0].exitCode = code;
+    list[0].label = label;
+    saveJson(HIST_KEY, list);
+    renderTaskHistory();
+  }
+}
+
+function renderTaskTemplates() {
+  const list = taskTemplates();
+  els.taskTemplates.hidden = list.length === 0;
+  if (!list.length) return;
+  els.taskTemplates.innerHTML = `<span class="lbl">模板</span>` + list.map((t, i) =>
+    `<span class="tpl-chip" data-i="${i}" title="${esc(t.task)}">${esc(t.name)}</span>`
+  ).join("");
+  els.taskTemplates.querySelectorAll(".tpl-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const t = taskTemplates()[Number(chip.dataset.i)];
+      if (t) els.taskInput.value = t.task;
+    });
+  });
+}
+
+function renderTaskHistory() {
+  const list = taskHistory();
+  els.taskHistory.hidden = list.length === 0;
+  if (!list.length) return;
+  els.histList.innerHTML = list.map((h, i) => {
+    const status = h.exitCode === null
+      ? '<span class="hist-status run">运行中</span>'
+      : h.exitCode === 0
+        ? '<span class="hist-status ok">成功</span>'
+        : `<span class="hist-status fail">${h.label || "失败"}</span>`;
+    return `
+      <div class="hist-item" data-i="${i}">
+        <div class="hist-main">
+          <div class="hist-task" title="${esc(h.task)}">${esc(h.task)}</div>
+          <div class="hist-time">${fmtClock(new Date(h.t).toISOString())}</div>
+        </div>
+        ${status}
+        <button class="mini-btn" data-rerun="${i}" title="重新运行">重跑</button>
+      </div>`;
+  }).join("");
+  els.histList.querySelectorAll("[data-rerun]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const t = taskHistory()[Number(btn.dataset.rerun)];
+      if (t) { els.taskInput.value = t.task; runTask(); }
+    });
+  });
+}
+
+function saveCurrentTemplate() {
+  const task = els.taskInput.value.trim();
+  if (!task) { toast("请先输入任务内容", "err"); return; }
+  const name = prompt("模板名称：", task.slice(0, 16));
+  if (!name) return;
+  const list = taskTemplates().filter((t) => t.name !== name);
+  list.unshift({ name, task });
+  saveJson(TPL_KEY, list);
+  renderTaskTemplates();
+  toast(`已保存模板「${name}」`, "ok");
 }
 
 async function explore(pathToOpen) {
@@ -650,6 +814,11 @@ function connectSSE() {
     els.taskExit.textContent = `EXIT ${d.exitCode}`;
     els.taskExit.className = "exit-chip " + (ok ? "ok" : "fail");
     toast(ok ? "任务执行完成" : `任务退出码 ${d.exitCode}`, ok ? "ok" : "err");
+    markLastHistoryExit(d.exitCode, ok ? null : `EXIT ${d.exitCode}`);
+  });
+  es.addEventListener("child-exited", (e) => {
+    const d = JSON.parse(e.data);
+    toast(`dsh web 异常退出（code ${d.code}），详情见日志面板`, "err");
   });
   es.onerror = () => {
     // 断线时提示一次；EventSource 会自动重连
@@ -678,6 +847,22 @@ els.btnSaveConfig.addEventListener("click", saveConfig);
 els.btnCheckUpdate.addEventListener("click", doCheckUpdate);
 els.btnInstallDsh.addEventListener("click", doInstallDsh);
 els.btnScanDsh.addEventListener("click", doScanDsh);
+els.btnExportLog.addEventListener("click", exportLog);
+els.btnSaveTemplate.addEventListener("click", saveCurrentTemplate);
+els.btnClearHistory.addEventListener("click", () => {
+  saveJson(HIST_KEY, []);
+  renderTaskHistory();
+  toast("历史已清空", "ok");
+});
+els.logFilter.addEventListener("input", () => {
+  const term = logFilterTerm();
+  if (term) renderLogFiltered(term);
+  else {
+    els.log.innerHTML = "";
+    logBuffer.slice(-LOG_DOM_MAX).forEach((l) => appendLogLine(l, els.log));
+    if (els.chkAutoscroll.checked) els.log.scrollTop = els.log.scrollHeight;
+  }
+});
 els.infoWorkspace.addEventListener("click", () => explore(els.infoWorkspace.textContent));
 els.metaHome.addEventListener("click", () => explore(els.metaHome.textContent));
 
@@ -724,6 +909,8 @@ els.themeSelect.addEventListener("change", (e) => applyTheme(e.target.value));
 
 setTab("log");
 connectSSE();
+renderTaskTemplates();
+renderTaskHistory();
 
 // 兜底轮询（EventSource 之外的保险）
 setInterval(async () => {
