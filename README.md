@@ -9,6 +9,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 ![Node >= 18](https://img.shields.io/badge/node-%3E%3D18-blue.svg)
 ![Zero Dependency](https://img.shields.io/badge/dependencies-0-brightgreen.svg)
+[![CI](https://img.shields.io/github/actions/workflow/status/levi52/dsh-launcher/ci.yml?label=CI)](https://github.com/levi52/dsh-launcher/actions)
 [![Developed with DeepSeek Harness](https://img.shields.io/badge/Built%20with-DeepSeek%20Harness-4d6bfe.svg)](https://www.deepseek.com/harness/)
 
 </div>
@@ -131,6 +132,8 @@ npm i -g @deepseek-ai/dsh@latest
 # npx 按需拉取（清除缓存强制最新）
 npx -y @deepseek-ai/dsh@latest web
 ```
+
+**没有安装 dsh？** 启动器检测不到时会显示「安装 dsh」按钮，点击即执行 `npm i -g @deepseek-ai/dsh@latest`（输出实时进日志面板，装完自动识别）；也可以直接点「启动服务」——启动器会通过 npx 按需联网拉取，无需预先安装。
 
 ## 测试
 

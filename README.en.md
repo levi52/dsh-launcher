@@ -9,6 +9,7 @@ English · [中文](README.md)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 ![Node >= 18](https://img.shields.io/badge/node-%3E%3D18-blue.svg)
 ![Zero Dependency](https://img.shields.io/badge/dependencies-0-brightgreen.svg)
+[![CI](https://img.shields.io/github/actions/workflow/status/levi52/dsh-launcher/ci.yml?label=CI)](https://github.com/levi52/dsh-launcher/actions)
 [![Developed with DeepSeek Harness](https://img.shields.io/badge/Built%20with-DeepSeek%20Harness-4d6bfe.svg)](https://www.deepseek.com/harness/)
 
 </div>
@@ -120,6 +121,8 @@ npm i -g @deepseek-ai/dsh@latest
 # npx on-demand (clear the cache to force the latest)
 npx -y @deepseek-ai/dsh@latest web
 ```
+
+**dsh not installed?** When the launcher detects no local dsh it shows an "Install dsh" button — one click runs `npm i -g @deepseek-ai/dsh@latest` with live output in the log panel, then re-detects automatically. You can also just click "Start" directly: the launcher will pull dsh on demand via npx, no prior install needed.
 
 ## Tests
 
