@@ -27,6 +27,8 @@ English · [中文](README.md)
 - ☰ **Session browser**: lists workspaces under `$DSH_HOME/sessions`, opens any folder in your file explorer
 - ⛔ **Force stop**: "Stop" only affects processes the launcher spawned itself; "Force kill port owner" finds and terminates whatever holds the Web UI port (with confirmation)
 - 🧩 **Auto-detects the dsh CLI**: npx cache → global npm install → `npx -y @deepseek-ai/dsh` fallback; fully overridable
+- 🔁 **Multi-instance adoption**: launcher instances share a claims registry (`$DSH_HOME/dsh-launcher/claims.json`) to identify who started the Web UI; another instance can take over ("Adopt") and then stop it normally
+- 🔔 **Install & update check**: shows whether dsh is installed and its source (npx cache / global install), compares against the npm registry latest version (1h cache), highlights new versions, one-click manual re-check
 - 🔒 **Local by design**: binds to `127.0.0.1` only, never touches credentials, config stays on your machine
 
 ## Quick Start
@@ -45,6 +47,18 @@ npm start
 ```
 
 The console opens automatically at <http://127.0.0.1:3090>. On Windows you can also double-click `start-launcher.bat`; run `create-desktop-shortcut.bat` to add a desktop shortcut with the whale icon (`public/favicon.ico`).
+
+## UI
+
+| Area | Description |
+|---|---|
+| **System Status** | Web UI online status (with latency), PID / port / workspace / start time, DSH version / Node / DSH_HOME / profiles |
+| **Start / Stop** | Start or stop `dsh web`; "Force kill port owner" closes instances the launcher did not start; the "Shut down launcher" button in the top bar exits the backend |
+| **Logs** | Main output stream: all stdout/stderr of dsh web and headless tasks |
+| **Quick Tasks** | Run/cancel headless tasks in a dedicated output panel |
+| **Sessions** | Workspace session list (name / path / last activity / count), open the folder in your file explorer |
+| **Settings** | Web UI port & host, workspace, dsh CLI entry, DSH_HOME override, auto-open browser |
+| **Themes** | Switch in the top bar: Deep Sea (default dark) / Neo-Brutalism / Claude; your choice is saved in the browser |
 
 ## Configuration
 
@@ -80,12 +94,32 @@ Launcher port: `node launcher.js --port 3100` or `DSH_LAUNCHER_PORT` (default 30
 | POST | `/api/explore` | Open a path in the file explorer (`{ path }`) |
 | POST | `/api/save-config` | Persist configuration |
 | POST | `/api/shutdown` | Shut down the launcher backend (stops the dsh web it spawned, releases claims, then exits) |
+| POST | `/api/check-update` | Force a dsh update check (returns `{ latest, installed, installedVersion, updateAvailable }`) |
+
+## How It Works
+
+- **dsh CLI detection**: uses the configured `dshCommand` first, then scans the npx cache (`%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\@deepseek-ai\dsh\lib\bin.js`) and global npm installs; finally falls back to `npx -y @deepseek-ai/dsh` (requires network). Local `bin.js` entries are executed with the current Node runtime.
+- **Port in use**: if the target port is already occupied by a process the launcher did not spawn, it reports "Web UI appears to be running" and opens the UI instead of stealing the port.
+- **Stop semantics**: "Stop" only affects processes the launcher spawned itself (safe by design); use "Force kill port owner" for other instances.
+- **Shutdown behavior**: clicking "Shut down launcher" (or Ctrl+C) stops the dsh web it spawned and releases claims; adopted processes keep running. Closing the terminal window directly ends the child processes with it — stop the service first.
 
 ## Security Notes
 
 - Listens on `127.0.0.1` only.
 - Never reads or transmits credentials; config stays local.
 - "Force stop" kills whatever holds the port (including a live Harness session) — the UI always asks for confirmation first.
+- The update check only queries the public version number from the npm registry; nothing local is uploaded.
+
+## Updating dsh
+
+Once a new version is found, update according to your install source:
+
+```bash
+# Global install
+npm i -g @deepseek-ai/dsh@latest
+# npx on-demand (clear the cache to force the latest)
+npx -y @deepseek-ai/dsh@latest web
+```
 
 ## Tests
 
@@ -96,10 +130,6 @@ npm test
 ```
 
 Zero-dependency, offline-friendly: no network or real dsh environment required.
-
-## Contributing
-
-PRs and issues are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 🤖 AI Statement
 

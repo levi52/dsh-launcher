@@ -59,8 +59,16 @@ const els = {
   setAutoOpen: $("#setAutoOpen"),
   btnSaveConfig: $("#btnSaveConfig"),
   saveStatus: $("#saveStatus"),
+  themeSelect: $("#themeSelect"),
   toasts: $("#toasts"),
 };
+
+/* ---------- 主题切换 ---------- */
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem("dsh-theme", theme); } catch { /* 隐私模式下忽略 */ }
+}
 
 /* ---------- 状态 ---------- */
 
@@ -158,7 +166,11 @@ function renderState(s) {
   // DSH 更新状态行
   els.updateRow.hidden = false;
   const srcLabel = { config: "自定义", "npx-cache": "npx 缓存", "global-npm": "全局安装", none: "未安装" }[s.dsh.source] || s.dsh.source;
-  if (s.dsh.installed) {
+  if (typeof s.dsh.installed !== "boolean") {
+    // 后端进程早于前端代码（文件已更新但启动器未重启）
+    els.updateText.textContent = "检测信息缺失：启动器后端进程较旧，请重启启动器后生效";
+    els.updateText.className = "update-text warn";
+  } else if (s.dsh.installed) {
     if (s.dsh.updateAvailable) {
       els.updateText.textContent = `发现新版本 v${s.dsh.latest}（当前 ${s.dsh.version} · ${srcLabel}）`;
       els.updateText.className = "update-text warn";
@@ -615,6 +627,10 @@ window.addEventListener("resize", () => {
 });
 
 /* ---------- 初始化 ---------- */
+
+// 主题：同步切换器与当前生效主题，监听变更
+els.themeSelect.value = document.documentElement.dataset.theme || "abyss";
+els.themeSelect.addEventListener("change", (e) => applyTheme(e.target.value));
 
 setTab("log");
 connectSSE();

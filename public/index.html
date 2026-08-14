@@ -6,11 +6,17 @@
 <title>DeepSeek Harness · 启动器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Archivo+Black&family=Lora:wght@500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/styles.css" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="32x32" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/favicon-512.png" />
+<script>
+  // 防闪烁：渲染前应用已保存的主题（abyss 深海 / brutal 新粗野主义 / claude Claude）
+  try {
+    document.documentElement.dataset.theme = localStorage.getItem("dsh-theme") || "abyss";
+  } catch (e) { /* 隐私模式下忽略 */ }
+</script>
 </head>
 <body>
 
@@ -62,6 +68,14 @@
       <span class="chip-key">GUI</span>
       <b id="guiStateText">检测中</b>
     </div>
+    <label class="theme-switch" title="切换主题">
+      <span class="chip-key">主题</span>
+      <select id="themeSelect" aria-label="切换主题">
+        <option value="abyss">深海</option>
+        <option value="brutal">新粗野主义</option>
+        <option value="claude">Claude</option>
+      </select>
+    </label>
     <button class="btn-power" id="btnShutdown" title="退出启动器后端进程"><span class="btn-glyph">⏻</span>关闭启动器</button>
   </div>
 </header>
