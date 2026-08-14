@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node launcher.js",
-    "test": "node --test test/",
+    "test": "node --test",
     "icons": "node scripts/generate-icons.mjs"
   },
   "keywords": [
