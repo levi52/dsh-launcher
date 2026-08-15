@@ -252,6 +252,84 @@ function splitCommand(cmd) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 插件管理（转发 dsh plugin → pnpm）                                  */
+/* ------------------------------------------------------------------ */
+
+let pluginBusy = false;
+
+function profileDir(name) {
+  return path.join(dshHomeResolved(), "profiles", name);
+}
+
+/** 读取某 profile 的已装插件：package.json 依赖 + dsh.profile.bundles 激活状态 */
+function readProfilePlugins(profile) {
+  const dir = profileDir(profile);
+  const result = { profile, dir, initialized: false, bundles: [], plugins: [] };
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+    result.initialized = true;
+    result.bundles = pkg.dsh?.profile?.bundles || [];
+    const deps = pkg.dependencies || {};
+    result.plugins = Object.keys(deps).map((name) => {
+      let version = null;
+      let isBundle = false;
+      try {
+        const depPkg = JSON.parse(fs.readFileSync(path.join(dir, "node_modules", name, "package.json"), "utf8"));
+        version = depPkg.version || null;
+        isBundle = !!depPkg.dsh?.bundle?.patch;
+      } catch { /* link 目标缺失等：保持未知 */ }
+      return { name, spec: deps[name], version, isBundle, active: result.bundles.includes(name) };
+    });
+  } catch { /* profile 未初始化 */ }
+  return result;
+}
+
+/** 运行一次 dsh plugin 操作（add/remove 等），输出实时进日志面板 */
+function runPluginOp(profile, args) {
+  if (pluginBusy) return { ok: false, code: "busy", message: "已有插件操作在进行中" };
+  pluginBusy = true;
+  const action = args[0];
+  const target = args[1] || "";
+  const label = action === "add" ? "安装" : action === "remove" ? "卸载" : "操作";
+  pushLog("sys", `[插件] ${label} ${target} → profile "${profile}"（需 pnpm 在 PATH）`);
+  const [cmd, ...rest] = splitCommand(dshBin);
+  const isNodeScript = /\.js$/i.test(cmd) && path.isAbsolute(cmd);
+  const executable = isNodeScript ? process.execPath : cmd;
+  const fullArgs = isNodeScript
+    ? [cmd, ...rest, "plugin", "--profile", profile, ...args]
+    : [...rest, "plugin", "--profile", profile, ...args];
+  let proc;
+  try {
+    proc = spawn(executable, fullArgs, {
+      cwd: config.workspace,
+      env: { ...process.env },
+      windowsHide: false,
+      shell: !isNodeScript && process.platform === "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    pluginBusy = false;
+    pushLog("sys", `[插件] 执行失败：${err.message}`);
+    broadcastState();
+    return { ok: false, code: "spawn-failed", message: err.message };
+  }
+  proc.stdout.on("data", (d) => pushLog("out", d.toString()));
+  proc.stderr.on("data", (d) => pushLog("err", d.toString()));
+  proc.on("error", (err) => {
+    pluginBusy = false;
+    pushLog("sys", `[插件] 执行失败：${err.message}`);
+    broadcastState();
+  });
+  proc.on("exit", (code) => {
+    pluginBusy = false;
+    pushLog("sys", `[插件] ${label}结束（退出码 ${code}${code !== 0 ? "，请查看上方错误输出" : "，插件列表已刷新"}）`);
+    broadcastState();
+  });
+  broadcastState();
+  return { ok: true };
+}
+
+/* ------------------------------------------------------------------ */
 /* 日志环形缓冲 + SSE 广播                                            */
 /* ------------------------------------------------------------------ */
 
@@ -720,6 +798,10 @@ async function snapshot() {
     headless: headlessRun
       ? { running: headlessRun.proc.exitCode === null, task: headlessRun.task, startedAt: headlessRun.startedAt, exitCode: headlessRun.exitCode }
       : { running: false, task: null, startedAt: null, exitCode: null },
+    plugins: {
+      busy: pluginBusy,
+      profiles: listDir(path.join(dshHomeResolved(), "profiles")).filter((p) => p !== "node_modules"),
+    },
     dsh: {
       bin: dshBin,
       source: dshSource,
@@ -996,6 +1078,23 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/headless-cancel" && req.method === "POST") {
       return sendJson(res, 200, cancelHeadless());
+    }
+
+    /* ---------- 插件管理 ---------- */
+    if (p === "/api/plugins" && req.method === "GET") {
+      const profile = String(u.searchParams.get("profile") || "web").replace(/[\\/]/g, "");
+      if (!/^[\w@.-]+$/.test(profile)) return sendJson(res, 400, { ok: false, message: "profile 名无效" });
+      return sendJson(res, 200, readProfilePlugins(profile));
+    }
+    if (p === "/api/plugins/op" && req.method === "POST") {
+      const body = await readBody(req);
+      const profile = String(body.profile || "web").replace(/[\\/]/g, "");
+      const action = String(body.action || "");
+      const pkg = String(body.pkg || "").trim();
+      if (!/^[\w@.-]+$/.test(profile)) return sendJson(res, 400, { ok: false, message: "profile 名无效" });
+      if (!["add", "remove"].includes(action)) return sendJson(res, 400, { ok: false, message: "action 仅支持 add / remove" });
+      if (!pkg) return sendJson(res, 400, { ok: false, message: "缺少插件包名" });
+      return sendJson(res, 200, runPluginOp(profile, [action, pkg]));
     }
 
     /* ---------- 打开浏览器 / 资源管理器 ---------- */

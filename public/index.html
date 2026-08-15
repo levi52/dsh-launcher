@@ -151,6 +151,7 @@
       <button class="tab is-active" data-view="log"><span>◉</span>日志 <i>LOG</i></button>
       <button class="tab" data-view="tasks"><span>⚡</span>快捷任务 <i>TASKS</i></button>
       <button class="tab" data-view="sessions"><span>☰</span>会话 <i>SESSIONS</i></button>
+      <button class="tab" data-view="plugins"><span>🧩</span>插件 <i>PLUGINS</i></button>
       <button class="tab" data-view="settings"><span>⚙</span>设置 <i>SETTINGS</i></button>
       <span class="tab-underline" id="tabUnderline"></span>
     </nav>
@@ -201,6 +202,21 @@
     <div class="view" id="view-sessions" hidden>
       <div class="log-bar"><span class="lbl">DSH_HOME/sessions 工作区会话</span><button class="mini-btn" id="btnRefreshSessions">刷新</button></div>
       <div class="sess-list" id="sessList"></div>
+    </div>
+
+    <!-- 插件 -->
+    <div class="view" id="view-plugins" hidden>
+      <div class="plugin-bar">
+        <span class="lbl">Profile</span>
+        <select id="pluginProfile" class="plugin-profile"></select>
+        <span class="plugin-hint">通过 <code>dsh plugin</code> 转发 pnpm 管理，操作输出见「日志」面板</span>
+        <button class="mini-btn" id="btnRefreshPlugins">刷新</button>
+      </div>
+      <div class="plugin-add">
+        <input type="text" id="pluginPkg" placeholder="包名，如 @scope/my-plugin 或 link:D:/path/to/plugin" autocomplete="off" />
+        <button class="btn btn-primary btn-sm" id="btnPluginInstall"><span class="btn-glyph">＋</span>安装 <i>ADD</i></button>
+      </div>
+      <div class="plugin-list" id="pluginList"></div>
     </div>
 
     <!-- 设置 -->

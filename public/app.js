@@ -61,6 +61,11 @@ const els = {
   taskLog: $("#taskLog"),
   sessList: $("#sessList"),
   btnRefreshSessions: $("#btnRefreshSessions"),
+  pluginProfile: $("#pluginProfile"),
+  pluginPkg: $("#pluginPkg"),
+  btnPluginInstall: $("#btnPluginInstall"),
+  btnRefreshPlugins: $("#btnRefreshPlugins"),
+  pluginList: $("#pluginList"),
   setGuiPort: $("#setGuiPort"),
   setGuiHost: $("#setGuiHost"),
   setWorkspace: $("#setWorkspace"),
@@ -207,6 +212,11 @@ function renderState(s) {
 
   // dsh 安装列表
   renderDshList(s.dsh.installs);
+
+  // 插件操作进行中：禁用操作按钮
+  const pluginBusy = !!s.plugins?.busy;
+  els.btnPluginInstall.disabled = pluginBusy;
+  els.btnRefreshPlugins.disabled = pluginBusy;
 
   // 快捷任务状态（仅在任务视图可见时更新文字）
   if (s.headless.running) {
@@ -358,9 +368,91 @@ function setTab(name) {
   els.tabUnderline.style.width = `${rect.width}px`;
   if (name === "sessions" && state) renderSessions(state.dsh.sessions);
   if (name === "settings" && state) fillSettings();
+  if (name === "plugins") loadPlugins();
 }
 
 els.tabs.forEach((t) => t.addEventListener("click", () => setTab(t.dataset.view)));
+
+/* ---------- 插件 ---------- */
+
+let pluginCurrentProfile = "web";
+
+async function loadPlugins() {
+  try {
+    if (state?.plugins?.profiles?.length) {
+      const cur = els.pluginProfile.value || "web";
+      els.pluginProfile.innerHTML = state.plugins.profiles
+        .map((p) => `<option value="${esc(p)}">${esc(p)}</option>`)
+        .join("");
+      els.pluginProfile.value = cur;
+      pluginCurrentProfile = cur;
+    }
+    const res = await fetch(`/api/plugins?profile=${encodeURIComponent(pluginCurrentProfile)}`);
+    const data = await res.json();
+    renderPlugins(data);
+  } catch (err) {
+    els.pluginList.innerHTML = `<div class="dsh-empty">插件列表加载失败：${esc(err.message)}</div>`;
+  }
+}
+
+function renderPlugins(data) {
+  if (!data.initialized) {
+    els.pluginList.innerHTML = `<div class="dsh-empty">profile「${esc(data.profile)}」未初始化——安装第一个插件时会自动初始化</div>`;
+    return;
+  }
+  if (!data.plugins.length) {
+    els.pluginList.innerHTML = `<div class="dsh-empty">该 profile 暂无插件依赖<br/><span style="font-size:9px;letter-spacing:.3em;opacity:.6">NO PLUGINS</span></div>`;
+    return;
+  }
+  els.pluginList.innerHTML = "";
+  data.plugins.forEach((p, i) => {
+    const item = document.createElement("div");
+    item.className = "plugin-item" + (p.active ? " active" : "");
+    item.style.animationDelay = `${Math.min(i * 0.04, 0.3)}s`;
+    const tag = p.active ? '<span class="plugin-tag layer">层 LAYER</span>'
+      : p.isBundle ? '<span class="plugin-tag">bundle</span>'
+      : '<span class="plugin-tag dep">依赖 DEP</span>';
+    item.innerHTML = `
+      <div class="plugin-name" title="${esc(p.name)}">${esc(p.name)}</div>
+      <div class="plugin-meta">
+        ${tag}
+        <span class="plugin-ver">v${p.version || "?"}</span>
+        ${p.spec ? `<span class="plugin-spec" title="${esc(p.spec)}">${esc(p.spec)}</span>` : ""}
+      </div>
+      <button class="mini-btn plugin-remove" data-pkg="${esc(p.name)}">卸载</button>
+    `;
+    item.querySelector(".plugin-remove").addEventListener("click", () => removePlugin(p.name));
+    els.pluginList.appendChild(item);
+  });
+}
+
+async function installPlugin() {
+  const pkg = els.pluginPkg.value.trim();
+  if (!pkg) { toast("请输入插件包名", "err"); return; }
+  const profile = els.pluginProfile.value || "web";
+  els.btnPluginInstall.disabled = true;
+  try {
+    const data = await post("/api/plugins/op", { profile, action: "add", pkg });
+    if (data.code === "busy") toast(data.message, "warn");
+    else { toast(`开始安装 ${pkg}，输出见日志面板`, "ok"); els.pluginPkg.value = ""; }
+  } catch (err) {
+    toast(err.message, "err");
+  } finally {
+    els.btnPluginInstall.disabled = false;
+  }
+}
+
+async function removePlugin(pkg) {
+  const profile = els.pluginProfile.value || "web";
+  if (!confirm(`确定从 profile「${profile}」卸载插件 ${pkg} 吗？`)) return;
+  try {
+    const data = await post("/api/plugins/op", { profile, action: "remove", pkg });
+    if (data.code === "busy") toast(data.message, "warn");
+    else toast(`开始卸载 ${pkg}，输出见日志面板`, "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
 
 /* ---------- 会话 ---------- */
 
@@ -862,6 +954,15 @@ els.logFilter.addEventListener("input", () => {
     logBuffer.slice(-LOG_DOM_MAX).forEach((l) => appendLogLine(l, els.log));
     if (els.chkAutoscroll.checked) els.log.scrollTop = els.log.scrollHeight;
   }
+});
+els.btnPluginInstall.addEventListener("click", installPlugin);
+els.btnRefreshPlugins.addEventListener("click", loadPlugins);
+els.pluginProfile.addEventListener("change", () => {
+  pluginCurrentProfile = els.pluginProfile.value || "web";
+  loadPlugins();
+});
+els.pluginPkg.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") installPlugin();
 });
 els.infoWorkspace.addEventListener("click", () => explore(els.infoWorkspace.textContent));
 els.metaHome.addEventListener("click", () => explore(els.metaHome.textContent));
