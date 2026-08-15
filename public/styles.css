@@ -1207,6 +1207,23 @@ body {
 [data-theme="brutal"] .task-box textarea::placeholder,
 [data-theme="brutal"] .field input::placeholder { color: #8a837a; }
 
+[data-theme="brutal"] .log-filter,
+[data-theme="brutal"] .plugin-profile,
+[data-theme="brutal"] .plugin-add input {
+  background: #fff; border: 2px solid #111; color: #141210;
+}
+[data-theme="brutal"] .log-filter:focus,
+[data-theme="brutal"] .plugin-add input:focus { border-color: #2b6ff2; }
+[data-theme="brutal"] .log-filter::placeholder,
+[data-theme="brutal"] .plugin-add input::placeholder { color: #8a837a; }
+[data-theme="brutal"] .plugin-profile option { background: #fff; color: #111; }
+
+[data-theme="brutal"] .dsh-item,
+[data-theme="brutal"] .hist-item,
+[data-theme="brutal"] .plugin-item { background: #fff; border: 2px solid #111; }
+[data-theme="brutal"] .dsh-item.in-use,
+[data-theme="brutal"] .plugin-item.active { background: #ffd400; border-color: #111; }
+
 [data-theme="brutal"] .sess-item { background: #fff; border: 2px solid #111; }
 [data-theme="brutal"] .sess-icon { background: #ffd400; border: 2px solid #111; color: #111; }
 [data-theme="brutal"] .sess-name { color: #141210; }
@@ -1379,6 +1396,23 @@ body {
 [data-theme="claude"] .field input:focus { border-color: #c15f3c; box-shadow: 0 0 0 3px rgba(193, 95, 60, 0.12); }
 [data-theme="claude"] .task-box textarea::placeholder,
 [data-theme="claude"] .field input::placeholder { color: var(--ink-faint); }
+
+[data-theme="claude"] .log-filter,
+[data-theme="claude"] .plugin-profile,
+[data-theme="claude"] .plugin-add input {
+  background: #fff; border: 1px solid var(--line-strong); color: var(--ink);
+}
+[data-theme="claude"] .log-filter:focus,
+[data-theme="claude"] .plugin-add input:focus { border-color: #c15f3c; box-shadow: 0 0 0 3px rgba(193, 95, 60, 0.12); }
+[data-theme="claude"] .log-filter::placeholder,
+[data-theme="claude"] .plugin-add input::placeholder { color: var(--ink-faint); }
+[data-theme="claude"] .plugin-profile option { background: #fff; color: var(--ink); }
+
+[data-theme="claude"] .dsh-item,
+[data-theme="claude"] .hist-item,
+[data-theme="claude"] .plugin-item { background: rgba(255, 255, 255, 0.8); }
+[data-theme="claude"] .dsh-item.in-use,
+[data-theme="claude"] .plugin-item.active { background: rgba(193, 95, 60, 0.08); border-color: rgba(193, 95, 60, 0.4); }
 
 [data-theme="claude"] .sess-item { background: rgba(255, 255, 255, 0.8); }
 [data-theme="claude"] .sess-icon { background: linear-gradient(160deg, rgba(217, 119, 87, 0.16), rgba(193, 95, 60, 0.22)); color: #a34a2c; }
