@@ -64,6 +64,7 @@ npm start          # 等价于 node launcher.js
 | **日志** | 主输出流，含 dsh web 与 headless 任务的全部 stdout/stderr |
 | **快捷任务** | 运行/取消 headless 任务，独立输出面板 |
 | **会话** | 工作区会话列表（名称 / 路径 / 最近活动 / 会话数），可打开所在文件夹 |
+| **插件** | 按 profile 管理 dsh 插件（转发 `dsh plugin` → pnpm）：安装/卸载、bundle 层/普通依赖标注、支持本地 `link:` 插件；操作输出在日志面板 |
 | **设置** | Web UI 端口与主机、工作区、dsh CLI 入口、DSH_HOME 覆盖、自动打开浏览器；「已发现的 dsh 安装」列表展示电脑上全部 dsh（全局 / npx 缓存）、标注当前使用，可点「使用」切换版本 |
 | **主题** | 顶栏切换：深海（默认深色）/ 新粗野主义 / Claude 风格，选择保存在本地浏览器 |
 

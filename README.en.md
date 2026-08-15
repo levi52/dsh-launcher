@@ -59,6 +59,7 @@ The console opens automatically at <http://127.0.0.1:3090>. On Windows you can a
 | **Logs** | Main output stream: all stdout/stderr of dsh web and headless tasks |
 | **Quick Tasks** | Run/cancel headless tasks in a dedicated output panel |
 | **Sessions** | Workspace session list (name / path / last activity / count), open the folder in your file explorer |
+| **Plugins** | Manage dsh plugins per profile (forwards `dsh plugin` → pnpm): install/remove, bundle-layer vs plain-dependency labels, local `link:` plugins supported; operation output goes to the Log panel |
 | **Settings** | Web UI port & host, workspace, dsh CLI entry, DSH_HOME override, auto-open browser; the "Found dsh installs" list shows every dsh on the machine (global / npx cache) with the active one marked, and a "Use" button to switch versions |
 | **Themes** | Switch in the top bar: Deep Sea (default dark) / Neo-Brutalism / Claude; your choice is saved in the browser |
 
