@@ -64,11 +64,14 @@ const els = {
   pluginProfile: $("#pluginProfile"),
   pluginPkg: $("#pluginPkg"),
   btnPluginInstall: $("#btnPluginInstall"),
+  btnPluginBrowse: $("#btnPluginBrowse"),
   btnRefreshPlugins: $("#btnRefreshPlugins"),
   pluginList: $("#pluginList"),
   setGuiPort: $("#setGuiPort"),
   setGuiHost: $("#setGuiHost"),
   setWorkspace: $("#setWorkspace"),
+  btnPickWorkspace: $("#btnPickWorkspace"),
+  btnPickHome: $("#btnPickHome"),
   setDshCommand: $("#setDshCommand"),
   setDshHome: $("#setDshHome"),
   setAutoOpen: $("#setAutoOpen"),
@@ -451,6 +454,29 @@ async function removePlugin(pkg) {
     else toast(`开始卸载 ${pkg}，输出见日志面板`, "ok");
   } catch (err) {
     toast(err.message, "err");
+  }
+}
+
+/* ---------- 原生文件夹选择器 ---------- */
+
+async function pickFolderAndFill(target, opts = {}) {
+  const btn = opts.button || null;
+  const label = opts.label || "浏览…";
+  if (btn) { btn.disabled = true; btn.textContent = "选择中…"; }
+  try {
+    const data = await post("/api/pick-folder", {});
+    if (!data.ok) {
+      if (data.code !== "canceled") toast(data.message || "未选择文件夹", "warn");
+      return;
+    }
+    const value = (opts.prefix || "") + data.path;
+    target.value = value;
+    target.focus();
+    toast("已填入所选路径", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
 
@@ -956,6 +982,9 @@ els.logFilter.addEventListener("input", () => {
   }
 });
 els.btnPluginInstall.addEventListener("click", installPlugin);
+els.btnPluginBrowse.addEventListener("click", () => pickFolderAndFill(els.pluginPkg, { prefix: "link:", button: els.btnPluginBrowse, label: "浏览…" }));
+els.btnPickWorkspace.addEventListener("click", () => pickFolderAndFill(els.setWorkspace, { button: els.btnPickWorkspace, label: "选择…" }));
+els.btnPickHome.addEventListener("click", () => pickFolderAndFill(els.setDshHome, { button: els.btnPickHome, label: "选择…" }));
 els.btnRefreshPlugins.addEventListener("click", loadPlugins);
 els.pluginProfile.addEventListener("change", () => {
   pluginCurrentProfile = els.pluginProfile.value || "web";

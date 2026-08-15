@@ -13,7 +13,7 @@
  */
 import http from "node:http";
 import net from "node:net";
-import { spawn, execFile } from "node:child_process";
+import { spawn, spawnSync, execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -710,6 +710,65 @@ function runHeadless(task) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 原生文件夹选择对话框（Windows: COM BrowseForFolder；macOS: osascript；Linux: zenity） */
+/* ------------------------------------------------------------------ */
+
+let pickBusy = false;
+let pickShell = null;   // Windows 选择器宿主：pwsh（快）或 powershell.exe（兜底）
+
+function pickFolder() {
+  if (pickBusy) return Promise.resolve({ ok: false, code: "busy", message: "已有一个文件夹选择对话框" });
+  pickBusy = true;
+  return new Promise((resolve) => {
+    let cmd, args;
+    if (process.platform === "win32") {
+      // 优先 pwsh（PowerShell 7 冷启动远快于 5.1）；找不到再回退 powershell.exe
+      if (pickShell === null) {
+        try {
+          pickShell = spawnSync("where", ["pwsh"], { encoding: "utf8", windowsHide: true }).status === 0 ? "pwsh" : "powershell.exe";
+        } catch {
+          pickShell = "powershell.exe";
+        }
+      }
+      cmd = pickShell;
+      // COM 文件夹选择器：不依赖 STA；0x41 = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE（现代风格对话框）
+      args = ["-NoProfile", "-Command", `
+$shell = New-Object -ComObject Shell.Application
+$f = $shell.BrowseForFolder(0, '选择文件夹', 0x41)
+if ($f) { Write-Output $f.Self.Path }
+`];
+    } else if (process.platform === "darwin") {
+      cmd = "osascript";
+      args = ["-e", "POSIX path of (choose folder as alias)"];
+    } else {
+      cmd = "zenity";
+      args = ["--file-selection", "--directory"];
+    }
+    let out = "";
+    let proc;
+    try {
+      proc = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: false, timeout: 120000 });
+      pushLog("sys", `[选择器] 已启动 ${cmd}（pid=${proc.pid}）`);
+    } catch (err) {
+      pickBusy = false;
+      return resolve({ ok: false, message: `无法打开文件夹选择器：${err.message}` });
+    }
+    proc.stdout.on("data", (d) => { out += d.toString(); });
+    proc.stderr.on("data", (d) => pushLog("sys", `[选择器] ${d.toString().trim()}`));
+    proc.on("error", (err) => {
+      pickBusy = false;
+      pushLog("sys", `[选择器] 启动失败：${err.message}`);
+      resolve({ ok: false, message: `文件夹选择器不可用：${err.message}` });
+    });
+    proc.on("exit", () => {
+      pickBusy = false;
+      const path = out.trim().split(/\r?\n/).pop() || "";
+      resolve(path ? { ok: true, path } : { ok: false, code: "canceled", message: "未选择文件夹" });
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* 探测与信息收集                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -1095,6 +1154,11 @@ const server = http.createServer(async (req, res) => {
       if (!["add", "remove"].includes(action)) return sendJson(res, 400, { ok: false, message: "action 仅支持 add / remove" });
       if (!pkg) return sendJson(res, 400, { ok: false, message: "缺少插件包名" });
       return sendJson(res, 200, runPluginOp(profile, [action, pkg]));
+    }
+
+    /* ---------- 原生文件夹选择对话框 ---------- */
+    if (p === "/api/pick-folder" && req.method === "POST") {
+      return sendJson(res, 200, await pickFolder());
     }
 
     /* ---------- 打开浏览器 / 资源管理器 ---------- */
