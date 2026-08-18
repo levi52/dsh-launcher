@@ -126,7 +126,9 @@ npx -y @deepseek-ai/dsh@latest web
 
 **dsh not installed?** When the launcher detects no local dsh it shows an "Install dsh" button — one click runs `npm i -g @deepseek-ai/dsh@latest` with live output in the log panel, then re-detects automatically. You can also just click "Start" directly: the launcher will pull dsh on demand via npx, no prior install needed.
 
-**Want to uninstall dsh?** The launcher deliberately has no uninstall button (uninstalling would break the tool's own dependency). Do it manually:
+**New version available?** The update check turns the button into **"Upgrade to vX"** — one click runs the global upgrade with live output.
+
+**Want to uninstall dsh?** The Settings page shows an **"Uninstall global dsh…"** button (visible when a global install exists, with a clear warning and confirmation; blocked while dsh web is running). You can also do it manually:
 
 ```bash
 # Remove the global install
