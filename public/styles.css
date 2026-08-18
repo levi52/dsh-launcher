@@ -434,9 +434,14 @@ body {
 }
 .mini-btn:hover { border-color: var(--cyan); box-shadow: 0 0 10px rgba(62, 224, 255, 0.3); color: var(--ink); }
 
-/* 一键安装 dsh 按钮（未安装时高亮） */
+/* 一键安装/升级 dsh 按钮 */
 .btn-install { border-color: var(--cyan); color: var(--cyan-soft); font-weight: 600; }
 .btn-install[hidden] { display: none; }
+
+/* 卸载全局 dsh 按钮（危险色） */
+.btn-uninstall { border-color: rgba(255, 107, 107, 0.4); color: var(--danger); }
+.btn-uninstall:hover { border-color: var(--danger); box-shadow: 0 0 10px rgba(255, 107, 107, 0.3); }
+.btn-uninstall[hidden] { display: none; }
 
 .infogrid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 1px;

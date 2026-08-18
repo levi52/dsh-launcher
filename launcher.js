@@ -195,18 +195,20 @@ async function checkDshUpdate(force = false) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 一键安装 dsh（全局 npm 安装）                                       */
+/* 一键安装 / 升级 dsh（全局 npm）与卸载                                */
 /* ------------------------------------------------------------------ */
 
 let installingDsh = false;
+let uninstallingDsh = false;
 
-/** 通过 npm 全局安装 @deepseek-ai/dsh；输出实时进入日志面板 */
+/** 通过 npm 全局安装/升级 @deepseek-ai/dsh；输出实时进入日志面板 */
 function installDsh() {
-  if (installingDsh) return { ok: false, code: "busy", message: "安装正在进行中" };
+  if (installingDsh) return { ok: false, code: "busy", message: "安装/升级正在进行中" };
+  if (uninstallingDsh) return { ok: false, code: "busy", message: "卸载正在进行中，请稍候" };
   if (isChildRunning()) return { ok: false, code: "busy", message: "请先停止正在运行的 dsh web 再安装" };
   installingDsh = true;
-  pushLog("sys", "[安装] 开始全局安装 @deepseek-ai/dsh（npm i -g @deepseek-ai/dsh@latest）...");
-  pushLog("sys", "[安装] 需要网络；安装完成后将自动重新识别");
+  pushLog("sys", "[安装] 开始全局安装/升级 @deepseek-ai/dsh（npm i -g @deepseek-ai/dsh@latest）...");
+  pushLog("sys", "[安装] 需要网络；完成后将自动重新识别");
   const cmd = process.platform === "win32" ? "npm.cmd" : "npm";
   let proc;
   try {
@@ -238,6 +240,51 @@ function installDsh() {
       checkDshUpdate(true).then(() => broadcastState()).catch(() => broadcastState());
     } else {
       pushLog("sys", `[安装] 失败，退出码 ${code}（请检查网络与 npm 配置后重试）`);
+      broadcastState();
+    }
+  });
+  broadcastState();
+  return { ok: true };
+}
+
+/** 卸载全局 @deepseek-ai/dsh；输出实时进入日志面板，卸载后自动重新识别 */
+function uninstallDsh() {
+  if (uninstallingDsh) return { ok: false, code: "busy", message: "卸载正在进行中" };
+  if (installingDsh) return { ok: false, code: "busy", message: "安装/升级正在进行中，请稍候" };
+  if (isChildRunning()) return { ok: false, code: "busy", message: "请先停止正在运行的 dsh web 再卸载" };
+  uninstallingDsh = true;
+  pushLog("sys", "[卸载] 开始全局卸载 @deepseek-ai/dsh（npm uninstall -g @deepseek-ai/dsh）...");
+  const cmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  let proc;
+  try {
+    proc = spawn(cmd, ["uninstall", "-g", "@deepseek-ai/dsh"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      shell: process.platform === "win32",
+    });
+  } catch (err) {
+    uninstallingDsh = false;
+    pushLog("sys", `[卸载] 无法执行 npm：${err.message}`);
+    broadcastState();
+    return { ok: false, code: "spawn-failed", message: err.message };
+  }
+  proc.stdout.on("data", (d) => pushLog("out", d.toString()));
+  proc.stderr.on("data", (d) => pushLog("err", d.toString()));
+  proc.on("error", (err) => {
+    uninstallingDsh = false;
+    pushLog("sys", `[卸载] npm 执行失败：${err.message}`);
+    broadcastState();
+  });
+  proc.on("exit", (code) => {
+    uninstallingDsh = false;
+    if (code === 0) {
+      const resolved = resolveDsh();
+      dshBin = resolved.bin;
+      dshSource = resolved.source;
+      pushLog("sys", `[卸载] 完成！当前 dsh：${dshBin}`);
+      checkDshUpdate(true).then(() => broadcastState()).catch(() => broadcastState());
+    } else {
+      pushLog("sys", `[卸载] 失败，退出码 ${code}`);
       broadcastState();
     }
   });
@@ -866,6 +913,7 @@ async function snapshot() {
       source: dshSource,
       installed: /\.js$/i.test(dshBin) && path.isAbsolute(dshBin),
       installing: installingDsh,
+      uninstalling: uninstallingDsh,
       installs: findAllDshInstalls(),
       version: readDshVersion(dshBin),
       latest: dshLatestCache?.version ?? null,
@@ -1224,6 +1272,11 @@ const server = http.createServer(async (req, res) => {
     /* ---------- 一键安装 dsh ---------- */
     if (p === "/api/install-dsh" && req.method === "POST") {
       return sendJson(res, 200, installDsh());
+    }
+
+    /* ---------- 卸载全局 dsh ---------- */
+    if (p === "/api/uninstall-dsh" && req.method === "POST") {
+      return sendJson(res, 200, uninstallDsh());
     }
 
     /* ---------- 重新扫描 dsh 安装 ---------- */

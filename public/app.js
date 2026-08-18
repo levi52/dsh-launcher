@@ -38,6 +38,7 @@ const els = {
   btnInstallDsh: $("#btnInstallDsh"),
   dshList: $("#dshList"),
   btnScanDsh: $("#btnScanDsh"),
+  btnUninstallDsh: $("#btnUninstallDsh"),
   tabbar: $("#tabbar"),
   tabs: $$(".tab"),
   tabUnderline: $("#tabUnderline"),
@@ -186,12 +187,17 @@ function renderState(s) {
   // DSH 更新状态行
   els.updateRow.hidden = false;
   const srcLabel = { config: "自定义", "npx-cache": "npx 缓存", "global-npm": "全局安装", none: "未安装" }[s.dsh.source] || s.dsh.source;
-  // 安装按钮：仅在明确未安装时显示
-  els.btnInstallDsh.hidden = !(s.dsh.installed === false);
-  els.btnInstallDsh.disabled = !!s.dsh.installing;
-  els.btnCheckUpdate.disabled = !!s.dsh.installing;
-  if (s.dsh.installing) {
-    els.updateText.textContent = "正在安装 dsh……（实时输出见日志面板）";
+  const dshOpBusy = !!s.dsh.installing || !!s.dsh.uninstalling;
+  // 安装/升级按钮：未安装 或 发现新版本 时显示
+  els.btnInstallDsh.hidden = !(s.dsh.installed === false || !!s.dsh.updateAvailable);
+  els.btnInstallDsh.disabled = dshOpBusy;
+  els.btnInstallDsh.textContent = s.dsh.installed ? `升级到 v${s.dsh.latest}` : "安装 dsh";
+  els.btnCheckUpdate.disabled = dshOpBusy;
+  if (s.dsh.uninstalling) {
+    els.updateText.textContent = "正在卸载全局 dsh……（实时输出见日志面板）";
+    els.updateText.className = "update-text warn";
+  } else if (s.dsh.installing) {
+    els.updateText.textContent = "正在安装/升级 dsh……（实时输出见日志面板）";
     els.updateText.className = "update-text warn";
   } else if (typeof s.dsh.installed !== "boolean") {
     // 后端进程早于前端代码（文件已更新但启动器未重启）
@@ -215,6 +221,14 @@ function renderState(s) {
 
   // dsh 安装列表
   renderDshList(s.dsh.installs);
+
+  // 卸载按钮：有全局安装（含 dshCommand 指向全局目录）时显示；操作中禁用
+  const inGlobalRoot =
+    /AppData[\\/]Roaming[\\/]npm[\\/]node_modules/i.test(s.dsh.bin || "") ||
+    /\.npm-global[\\/]node_modules/i.test(s.dsh.bin || "");
+  const hasGlobal = Array.isArray(s.dsh.installs) && (s.dsh.installs.some((i) => i.source === "global-npm") || inGlobalRoot);
+  els.btnUninstallDsh.hidden = !hasGlobal;
+  els.btnUninstallDsh.disabled = dshOpBusy;
 
   // 插件操作进行中：禁用操作按钮
   const pluginBusy = !!s.plugins?.busy;
@@ -872,15 +886,46 @@ async function doCheckUpdate() {
 /* ---------- 一键安装 dsh ---------- */
 
 async function doInstallDsh() {
-  if (!state || state.dsh.installed !== false) return;
-  const msg =
-    "将通过 npm 全局安装 @deepseek-ai/dsh（npm i -g @deepseek-ai/dsh@latest）。\n" +
-    "需要网络；安装过程输出会实时显示在日志面板。\n\n继续？";
-  if (!confirm(msg)) return;
+  if (!state) return;
+  if (state.dsh.installed === false) {
+    const msg =
+      "将通过 npm 全局安装 @deepseek-ai/dsh（npm i -g @deepseek-ai/dsh@latest）。\n" +
+      "需要网络；安装过程输出会实时显示在日志面板。\n\n继续？";
+    if (!confirm(msg)) return;
+  } else if (!state.dsh.updateAvailable) {
+    return;
+  } else {
+    // 升级
+    const msg =
+      `检测到新版本 v${state.dsh.latest}（当前 ${state.dsh.version}）。\n` +
+      "将通过 npm 全局升级（npm i -g @deepseek-ai/dsh@latest）。\n" +
+      "需要网络；升级过程输出会实时显示在日志面板。\n\n继续？";
+    if (!confirm(msg)) return;
+  }
   try {
     const data = await post("/api/install-dsh", {});
     if (data.code === "busy") { toast(data.message, "warn"); return; }
-    toast("开始安装 dsh……", "ok");
+    toast(state.dsh.installed === false ? "开始安装 dsh……" : "开始升级 dsh……", "ok");
+  } catch (err) {
+    toast(err.message, "err");
+  }
+}
+
+/* ---------- 卸载全局 dsh ---------- */
+
+async function doUninstallDsh() {
+  if (!state) return;
+  const msg =
+    "将卸载全局安装的 @deepseek-ai/dsh（npm uninstall -g @deepseek-ai/dsh）。\n\n" +
+    "⚠ 卸载后：\n" +
+    "· 终端 dsh 命令将不可用；启动器会回退到 npx 缓存（如有）或按需拉取\n" +
+    "· 如仅剩这一份安装，启动器将无法再启动 dsh web\n\n" +
+    "确定继续？";
+  if (!confirm(msg)) return;
+  try {
+    const data = await post("/api/uninstall-dsh", {});
+    if (data.code === "busy") { toast(data.message, "warn"); return; }
+    toast("开始卸载……（输出见日志面板）", "ok");
   } catch (err) {
     toast(err.message, "err");
   }
@@ -964,6 +1009,7 @@ els.btnRefreshSessions.addEventListener("click", async () => {
 els.btnSaveConfig.addEventListener("click", saveConfig);
 els.btnCheckUpdate.addEventListener("click", doCheckUpdate);
 els.btnInstallDsh.addEventListener("click", doInstallDsh);
+els.btnUninstallDsh.addEventListener("click", doUninstallDsh);
 els.btnScanDsh.addEventListener("click", doScanDsh);
 els.btnExportLog.addEventListener("click", exportLog);
 els.btnSaveTemplate.addEventListener("click", saveCurrentTemplate);

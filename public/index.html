@@ -262,7 +262,10 @@
       <div class="dsh-installs">
         <div class="log-bar">
           <span class="lbl">已发现的 dsh 安装</span>
-          <button class="mini-btn" id="btnScanDsh">重新扫描</button>
+          <div class="log-ctrl">
+            <button class="mini-btn btn-uninstall" id="btnUninstallDsh" hidden title="卸载全局安装的 @deepseek-ai/dsh">卸载全局 dsh…</button>
+            <button class="mini-btn" id="btnScanDsh">重新扫描</button>
+          </div>
         </div>
         <div class="dsh-list" id="dshList"></div>
       </div>
